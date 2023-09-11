@@ -14,3 +14,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         show_sql: false
+
+redirection:
+  url: http://localhost:8080/swagger-ui/index.html
