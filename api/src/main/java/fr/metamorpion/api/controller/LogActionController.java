@@ -27,21 +27,17 @@ public class LogActionController {
             summary = "Get all logs after date",
             description = "Get all logs after the specified date"
     )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200")
-    })
-    @GetMapping("after")
-    public ResponseEntity<Collection<LogAction>> getLogsAfter(@RequestParam("ts") LocalDateTime timestamp) {
-        return ResponseEntity.ok(logActionService.getLogsAfter(timestamp));
+    @ApiResponse(responseCode = "200")
+    @GetMapping("after/{roomCode}")
+    public ResponseEntity<Collection<LogAction>> getLogsAfter(@PathVariable("roomCode") String roomCode, @RequestParam("ts") LocalDateTime timestamp) {
+        return ResponseEntity.ok(logActionService.getLogsAfter(timestamp, roomCode));
     }
 
     @Operation(
             summary = "Get logs of room",
             description = "Get all logs of room"
     )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200")
-    })
+    @ApiResponse(responseCode = "200")
     @GetMapping("{roomCode}")
     public ResponseEntity<Collection<LogAction>> getLogsOfRoom(@PathVariable("roomCode") String roomCode) {
         return ResponseEntity.ok(logActionService.getLogsOfRoom(roomCode));

@@ -9,7 +9,8 @@ public enum FunctionalRule {
     GAME_0001("GAME_NOT_FOUND", "Partie introuvable"),
     GAME_0002("GAME_FULL", "Partie complète"),
     GAME_0003("ALREADY_IN_GAME", "Vous êtes déjà dans la partie"),
-    GAME_0004("NOT_IN_GAME", "Le joueur n'appartient pas à la partie")
+    GAME_0004("NOT_IN_GAME", "Le joueur n'appartient pas à la partie"),
+    GAME_0005("MOVE_UNAUTHORIZED", "Impossible de jouer ce coup"),
     ;
 
     private final String name;

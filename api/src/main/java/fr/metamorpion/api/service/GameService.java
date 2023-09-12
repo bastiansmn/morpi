@@ -1,12 +1,9 @@
 package fr.metamorpion.api.service;
 
+import fr.metamorpion.api.constants.GameConstants;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
-import fr.metamorpion.api.model.CellStatus;
-import fr.metamorpion.api.model.Game;
-import fr.metamorpion.api.model.GameType;
-import fr.metamorpion.api.model.Player;
-import fr.metamorpion.api.model.Subgrid;
+import fr.metamorpion.api.model.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -93,7 +90,7 @@ public class GameService {
             );
         }
 
-        if (!game.getPlayer1().equals(player) && !game.getPlayer1().equals(player)) {
+        if (!game.getPlayer1().equals(player) && !game.getPlayer2().equals(player)) {
             throw new FunctionalException(
                     FunctionalRule.GAME_0004,
                     HttpStatus.BAD_REQUEST
@@ -168,17 +165,26 @@ public class GameService {
 
     /**
      * Check if a move is possible in the grid of the game
-     * @param game current game
-     * @param i position i of the move
-     * @param j position j of the move
-     * @param subGridUuid the subgrid's uuid of our move
+     * @param roomCode current roomCode of the game
+     * @param posI position i of the move
+     * @param posJ position j of the move
      * @return true if it's possible
      */
-    public boolean isAMovePossible(Game game, int i, int j, String subGridUuid) {
+    public boolean isAMovePossible(String roomCode, String playerUUID,  int posI, int posJ) throws FunctionalException{
+        Game game = findByRoomCode(roomCode);
+        String subGridUuid = getTheSubGridUuid(posI, posJ, game);
+        int i = posI/GameConstants.GRID_SIZE;
+        int j = GameConstants.GRID_SIZE;
         return cellIsEmpty(game, i, j, subGridUuid) &&
                 subGridPlayable(game, subGridUuid) &&
-                inTheSubGrid(game, subGridUuid);
-        // TODO verifier que c'est le bon joueur qui essaie de jouer
+                inTheSubGrid(game, subGridUuid) &&
+                playerUUID.equals(game.getCurrentPlayerId());
+    }
+
+    private String getTheSubGridUuid(int i, int j, Game game) {
+        int posI = i/ GameConstants.GRID_SIZE;
+        int posJ = j/GameConstants.GRID_SIZE;
+        return game.getGrid().getSubgrids()[posI][posJ].getUuid();
     }
 
     /**
@@ -232,16 +238,19 @@ public class GameService {
 
     /**
      *
-     * @param game
-     * @param i
-     * @param j
-     * @param subGribUuid
+     * @param roomCode current roomCode of the game
+     * @param posI position i of the move
+     * @param posJ position j of the move
      * @return si le jeu est fini ou non
      */
-    public boolean playAMove(Game game, int i, int j, String subGribUuid) {
+    public boolean playAMove(String roomCode, String playerUUID, int posI, int posJ) throws FunctionalException {
+        Game game = findByRoomCode(roomCode);
+        String subGribUuid = getTheSubGridUuid(posI, posJ, game);
         Subgrid subgrid = getSubGrid(game, subGribUuid);
         assert subgrid != null;
 
+        int i = posI/GameConstants.GRID_SIZE;
+        int j = posJ/GameConstants.GRID_SIZE;
         subgrid.getCells()[i][j] = game.getCurrentSymbol();
 
         if (game.getCurrentSymbol().equals(CellStatus.X)) {
@@ -252,9 +261,9 @@ public class GameService {
 
         calculateTheSubGridToPlay(game, i, j);
 
-        if (game.getCurrentPlayerId().equals(game.getPlayer1().getUuid())) {
+        if (playerUUID.equals(game.getPlayer1().getUuid())) {
             game.setCurrentPlayerId(game.getPlayer2().getUuid());
-        } else if (game.getCurrentPlayerId().equals(game.getPlayer2().getUuid())){
+        } else if (playerUUID.equals(game.getPlayer2().getUuid())){
             game.setCurrentPlayerId(game.getPlayer1().getUuid());
         }
 

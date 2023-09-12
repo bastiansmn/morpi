@@ -1,7 +1,7 @@
 package fr.metamorpion.api.service;
 
 import fr.metamorpion.api.model.LogAction;
-import fr.metamorpion.api.repository.LogActionSer;
+import fr.metamorpion.api.repository.LogActionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,14 +12,14 @@ import java.util.Collection;
 @RequiredArgsConstructor
 public class LogActionService {
 
-    private final LogActionSer logActionRepository;
+    private final LogActionRepository logActionRepository;
 
-    public Collection<LogAction> getLogsAfter(LocalDateTime timestamp) {
-        return logActionRepository.findByTimestampAfterOrderByTimestampDesc(timestamp);
+    public Collection<LogAction> getLogsAfter(LocalDateTime timestamp, String roomCode) {
+        return logActionRepository.findByGameUUIDAndTimestampAfterOrderByTimestampDesc(roomCode, timestamp);
     }
 
     public Collection<LogAction> getLogsOfRoom(String roomCode) {
-        return logActionRepository.findByGameUUID(roomCode);
+        return logActionRepository.findByGameUUIDOrderByTimestampDesc(roomCode);
     }
 
     public void deleteAllByGameUUID(String roomCode) {

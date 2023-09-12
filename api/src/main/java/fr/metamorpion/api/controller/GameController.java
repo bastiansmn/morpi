@@ -2,6 +2,8 @@ package fr.metamorpion.api.controller;
 
 import fr.metamorpion.api.exception.ApiError;
 import fr.metamorpion.api.exception.FunctionalException;
+import fr.metamorpion.api.exception.FunctionalRule;
+import fr.metamorpion.api.model.AfterMoveState;
 import fr.metamorpion.api.model.Game;
 import fr.metamorpion.api.model.GameType;
 import fr.metamorpion.api.model.Player;
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.aspectj.lang.annotation.After;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -137,5 +140,45 @@ public class GameController {
     ) throws FunctionalException {
         gameService.quitGame(roomCode, playerUUID);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Send a move",
+            description = "Send a move if it's possible"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "User not in game",
+                    content = { @Content(schema = @Schema(implementation = ApiError.class)) }
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The specified game doesn't exist",
+                    content = { @Content(schema = @Schema(implementation = ApiError.class)) }
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The specified player doesn't exists",
+                    content = { @Content(schema = @Schema(implementation = ApiError.class)) }
+            )
+    })
+    @PostMapping("send-move")
+    public ResponseEntity<AfterMoveState> sendMove(
+            @RequestParam("roomCode") String roomCode,
+            @RequestParam("playerUUID") String playerUUID,
+            @RequestParam("i") int i,
+            @RequestParam("j") int j
+    ) throws FunctionalException {
+        boolean movePossible = gameService.isAMovePossible(roomCode, playerUUID, i, j);
+        if (movePossible) {
+            boolean gameFinished = gameService.playAMove(roomCode, playerUUID, i, j);
+            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, i, j, gameFinished));
+        } else {
+            throw new FunctionalException(
+                    FunctionalRule.GAME_0005
+            );
+        }
     }
 }
