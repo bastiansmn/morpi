@@ -24,10 +24,12 @@ public class Game {
     private CellStatus currentSymbol = CellStatus.X;
     private boolean started = false;
     private boolean finished = false;
+    private GameType gameType;
 
-    public Game() {
+    public Game(GameType gameType) {
         this.roomCode = Game.generateRoomCode(GameConstants.ROOMCODE_SIZE);
         this.grid = new Grid(GameConstants.GRID_SIZE);
+        this.gameType = gameType;
     }
 
     private static String generateRoomCode(int length) {

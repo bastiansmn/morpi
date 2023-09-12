@@ -4,6 +4,7 @@ import fr.metamorpion.api.constants.GameConstants;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
 import fr.metamorpion.api.model.*;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,11 @@ public class GameService {
     private final Map<String, Game> games = new HashMap<>();
 
     public Collection<Game> getPendingGames() {
-        return games.values().stream().filter(g -> !g.isStarted()).toList();
+        return games.values().stream()
+                .filter(g -> !g.isStarted())
+                .filter(g -> g.getGameType().equals(GameType.PVP_ONLINE))
+                .filter(g -> g.getPlayer1() == null || g.getPlayer2() == null)
+                .toList();
     }
 
     /***
@@ -35,21 +40,26 @@ public class GameService {
      * @param gameType Choose the type of game you want to start
      * @return the game just created
      */
-    public Game createGame(GameType gameType, String playerUUID) throws FunctionalException {
+    public Game createGame(GameType gameType, String playerUUID, boolean isFirstToPlay) throws FunctionalException {
         Player player = players.getOrDefault(playerUUID, null);
         if (player == null) {
             player = registerPlayer("guest");
         }
 
+
         switch (gameType) {
             default -> {
-                var game = new Game();
+                var game = new Game(gameType);
                 game.setPlayer1(player);
+                if(isFirstToPlay){
+                    game.setCurrentPlayerId(player.getUuid());
+                }
                 games.put(game.getRoomCode(), game);
                 return game;
             }
         }
-    }
+
+        }
 
     /**
      * Make a player join the specified room
@@ -60,12 +70,7 @@ public class GameService {
      * @throws FunctionalException if the game isn't found.
      */
     public Game joinGame(String roomCode, String playerUUID) throws FunctionalException {
-        Game game = games.getOrDefault(roomCode, null);
-        if (Objects.isNull(game)) {
-            throw new FunctionalException(
-                    FunctionalRule.GAME_0001
-            );
-        }
+        Game game = findByRoomCode(roomCode);
 
         Player player = players.getOrDefault(playerUUID, null);
         if (player == null) {
@@ -76,19 +81,9 @@ public class GameService {
     }
 
     public void quitGame(String roomCode, String playerUUID) throws FunctionalException {
-        Game game = games.getOrDefault(roomCode, null);
-        if (Objects.isNull(game)) {
-            throw new FunctionalException(
-                    FunctionalRule.GAME_0001
-            );
-        }
+        Game game = findByRoomCode(roomCode);
 
-        Player player = players.getOrDefault(playerUUID, null);
-        if (player == null) {
-            throw new FunctionalException(
-                    FunctionalRule.PLAYER_0001
-            );
-        }
+        Player player = getPlayerByPlayerUUID(playerUUID);
 
         if (!game.getPlayer1().equals(player) && !game.getPlayer2().equals(player)) {
             throw new FunctionalException(
@@ -104,13 +99,18 @@ public class GameService {
         }
     }
 
-    public void deleteGame(String roomCode) throws FunctionalException {
-        Game game = games.getOrDefault(roomCode, null);
-        if (Objects.isNull(game)) {
+    private Player getPlayerByPlayerUUID(String playerUUID) throws FunctionalException {
+        Player player = players.getOrDefault(playerUUID, null);
+        if (player == null) {
             throw new FunctionalException(
-                    FunctionalRule.GAME_0001
+                    FunctionalRule.PLAYER_0001
             );
         }
+        return player;
+    }
+
+    public void deleteGame(String roomCode) throws FunctionalException {
+        Game game = findByRoomCode(roomCode);
 
         games.remove(roomCode);
         logActionService.deleteAllByGameUUID(roomCode);
@@ -118,7 +118,7 @@ public class GameService {
 
     public Game findByRoomCode(String roomCode) throws FunctionalException {
         Game game = games.getOrDefault(roomCode, null);
-        if (game == null) {
+        if (Objects.isNull(game)) {
             throw new FunctionalException(
                     FunctionalRule.GAME_0001
             );
@@ -128,27 +128,23 @@ public class GameService {
 
     private void addPlayer(Game game, Player p) throws FunctionalException {
         if (game.getPlayer1() == null) {
+            if(game.getCurrentPlayerId().isEmpty()){
+                game.setCurrentPlayerId(p.getUuid());
+            }
             game.setPlayer1(p);
             return;
         }
 
-        if (game.getPlayer1().equals(p)) {
-            throw new FunctionalException(
-                    FunctionalRule.GAME_0003,
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
-        if (game.getPlayer2() == null) {
+        if (!game.getPlayer1().equals(p) && game.getPlayer2() == null) {
+            if (game.getCurrentPlayerId().isEmpty()) {
+                game.setCurrentPlayerId(p.getUuid());
+            }
             game.setPlayer2(p);
             return;
         }
 
-        if (game.getPlayer2().equals(p)) {
-            throw new FunctionalException(
-                    FunctionalRule.GAME_0003,
-                    HttpStatus.BAD_REQUEST
-            );
+        if (game.getPlayer1().equals(p) || game.getPlayer2().equals(p)) {
+            return;
         }
 
         throw new FunctionalException(
@@ -163,6 +159,13 @@ public class GameService {
         return player;
     }
 
+    public Player registerPlayer(String username, @Nullable String playerUUID) {
+        if (playerUUID == null) return registerPlayer(username);
+        var player = new Player(playerUUID, username);
+        players.put(player.getUuid(), player);
+        return player;
+    }
+
     /**
      * Check if a move is possible in the grid of the game
      * @param roomCode current roomCode of the game
@@ -171,14 +174,39 @@ public class GameService {
      * @return true if it's possible
      */
     public boolean isAMovePossible(String roomCode, String playerUUID,  int posI, int posJ) throws FunctionalException{
+        positionIsCorrect(posI, posJ);
         Game game = findByRoomCode(roomCode);
+        playerUUIDisCoherent(playerUUID, game);
         String subGridUuid = getTheSubGridUuid(posI, posJ, game);
+
         int i = posI/GameConstants.GRID_SIZE;
-        int j = GameConstants.GRID_SIZE;
+        int j = posJ/GameConstants.GRID_SIZE;
+
         return cellIsEmpty(game, i, j, subGridUuid) &&
                 subGridPlayable(game, subGridUuid) &&
                 inTheSubGrid(game, subGridUuid) &&
                 playerUUID.equals(game.getCurrentPlayerId());
+    }
+
+    private void positionIsCorrect(int posI, int posJ) throws FunctionalException {
+        if (posI < 0 || posJ < 0 || posI >= GameConstants.GRID_SIZE || posJ >= GameConstants.GRID_SIZE) {
+            throw new FunctionalException(
+                    FunctionalRule.GAME_0005
+            );
+        }
+    }
+
+    private void playerUUIDisCoherent(String playerUUID, Game game) throws FunctionalException{
+        if (game.getPlayer1() == null || game.getPlayer2() == null)
+            throw new FunctionalException(
+                    FunctionalRule.PLAYER_0001
+            );
+        if (!game.getPlayer1().getUuid().equals(playerUUID) &&
+            !game.getPlayer2().getUuid().equals(playerUUID)) {
+            throw new FunctionalException(
+                    FunctionalRule.PLAYER_0001
+            );
+        }
     }
 
     private String getTheSubGridUuid(int i, int j, Game game) {
@@ -263,17 +291,17 @@ public class GameService {
 
         if (playerUUID.equals(game.getPlayer1().getUuid())) {
             game.setCurrentPlayerId(game.getPlayer2().getUuid());
-        } else if (playerUUID.equals(game.getPlayer2().getUuid())){
+        } else if (playerUUID.equals(game.getPlayer2().getUuid())) {
             game.setCurrentPlayerId(game.getPlayer1().getUuid());
         }
 
-        // TODO i * 3*i de la subgrid, pareil avec j
         logActionService.saveLogAction(
                 "",
                 game.getRoomCode(),
-                (long) i,
-                (long) j
+                (long) posI,
+                (long) posJ
         );
+
         if (isSubgridFinished(subgrid)) return isGameFinished(game);
         return false;
     }

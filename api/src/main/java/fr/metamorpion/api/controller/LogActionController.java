@@ -3,6 +3,7 @@ package fr.metamorpion.api.controller;
 import fr.metamorpion.api.model.LogAction;
 import fr.metamorpion.api.service.LogActionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +26,11 @@ public class LogActionController {
 
     @Operation(
             summary = "Get all logs after date",
-            description = "Get all logs after the specified date"
+            description = "Get all logs after the specified date for the specified room code"
     )
     @ApiResponse(responseCode = "200")
     @GetMapping("after/{roomCode}")
-    public ResponseEntity<Collection<LogAction>> getLogsAfter(@PathVariable("roomCode") String roomCode, @RequestParam("ts") LocalDateTime timestamp) {
+    public ResponseEntity<Collection<LogAction>> getLogsAfter(@PathVariable("roomCode") String roomCode, @Parameter(description = "e.g : 2023-09-12T11:25:03") @RequestParam("ts") LocalDateTime timestamp) {
         return ResponseEntity.ok(logActionService.getLogsAfter(timestamp, roomCode));
     }
 

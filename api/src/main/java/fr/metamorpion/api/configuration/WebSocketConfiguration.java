@@ -1,4 +1,4 @@
-package fr.metamorpion.api.configuration.properties;
+package fr.metamorpion.api.configuration;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -21,7 +21,9 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
      */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/data-info").withSockJS();
+        // Socket endpoint
+        registry.addEndpoint("/data-info")
+                .withSockJS();
     }
 
 }

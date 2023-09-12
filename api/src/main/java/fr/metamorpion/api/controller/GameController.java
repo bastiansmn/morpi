@@ -3,26 +3,22 @@ package fr.metamorpion.api.controller;
 import fr.metamorpion.api.exception.ApiError;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
-import fr.metamorpion.api.model.AfterMoveState;
-import fr.metamorpion.api.model.Game;
-import fr.metamorpion.api.model.GameType;
-import fr.metamorpion.api.model.Player;
+import fr.metamorpion.api.model.*;
 import fr.metamorpion.api.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.aspectj.lang.annotation.After;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 
@@ -35,8 +31,8 @@ public class GameController {
     private final GameService gameService;
 
     @Operation(
-            summary = "Get the list of current room",
-            description = "Get the rooms that aren't started yet"
+            summary = "Get the list of current rooms",
+            description = "Get the rooms that haven't started yet"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200")
@@ -64,14 +60,14 @@ public class GameController {
 
     @Operation(
             summary = "Register a new user",
-            description = "Register the user according to the name and saves him to the list"
+            description = "Register the user according to the name and saves him to a list of players"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200")
     })
     @PostMapping("register")
-    public ResponseEntity<Player> registerPlayer(@RequestParam("username") String username) {
-        return ResponseEntity.ok(gameService.registerPlayer(username));
+    public ResponseEntity<Player> registerPlayer(@RequestParam("username") String username, @RequestParam(value = "playerUUID", required = false) String playerUUID) {
+        return ResponseEntity.ok(gameService.registerPlayer(username, playerUUID));
     }
 
     @Operation(
@@ -82,13 +78,13 @@ public class GameController {
             @ApiResponse(responseCode = "200")
     })
     @PostMapping("create")
-    public ResponseEntity<Game> createGame(@RequestParam("gameType") GameType gameType, @RequestParam("playerUUID") String playerUUID) throws FunctionalException {
-        return ResponseEntity.ok(gameService.createGame(gameType, playerUUID));
+    public ResponseEntity<Game> createGame(@RequestParam("gameType") GameType gameType, @RequestParam("playerUUID") String playerUUID, @RequestParam("firstToPlay") boolean isFirstToPlay) throws FunctionalException {
+        return ResponseEntity.ok(gameService.createGame(gameType, playerUUID, isFirstToPlay));
     }
 
     @Operation(
             summary = "Join a room",
-            description = "Join a room with the room code associated. Creates the user if not exists"
+            description = "Join a room with the room code associated. Creates the user if he doesn't exist"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200"),
@@ -144,13 +140,18 @@ public class GameController {
 
     @Operation(
             summary = "Send a move",
-            description = "Send a move if it's possible"
+            description = "Send a move to the associated roomcode. The response specifies if the move could be played : if so, the player receives the updated game state, otherwise an error message"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200"),
             @ApiResponse(
                     responseCode = "400",
                     description = "User not in game",
+                    content = { @Content(schema = @Schema(implementation = ApiError.class)) }
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "This move is unauthorized",
                     content = { @Content(schema = @Schema(implementation = ApiError.class)) }
             ),
             @ApiResponse(
@@ -168,8 +169,8 @@ public class GameController {
     public ResponseEntity<AfterMoveState> sendMove(
             @RequestParam("roomCode") String roomCode,
             @RequestParam("playerUUID") String playerUUID,
-            @RequestParam("i") int i,
-            @RequestParam("j") int j
+            @Parameter(description = "Absolute line number in grid") @RequestParam("i") int i,
+            @Parameter(description = "Absolute column number in grid")@RequestParam("j") int j
     ) throws FunctionalException {
         boolean movePossible = gameService.isAMovePossible(roomCode, playerUUID, i, j);
         if (movePossible) {
@@ -177,8 +178,50 @@ public class GameController {
             return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, i, j, gameFinished));
         } else {
             throw new FunctionalException(
-                    FunctionalRule.GAME_0005
+                    FunctionalRule.GAME_0005,
+                    HttpStatus.BAD_REQUEST
             );
         }
     }
+
+
+    //////////////////////////
+    /// WebSocket endpoints //
+    //////////////////////////
+
+    @Operation(
+            summary = "Send a move",
+            description = "Send a move through the websocket"
+    )
+    @MessageMapping("/send-move/{roomCode}")
+    @SendTo("/room/{roomCode}")
+    public AfterMoveState sendMoveWS(
+            @DestinationVariable("roomCode") String roomCode,
+            @RequestBody ActionDTO action
+    ) throws FunctionalException {
+        boolean movePossible = gameService.isAMovePossible(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
+        if (movePossible) {
+            boolean gameFinished = gameService.playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), action.getI(), action.getJ(), gameFinished);
+        } else {
+            throw new FunctionalException(
+                    FunctionalRule.GAME_0005,
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+    @Operation(
+            summary = "Leave room",
+            description = "Leave room through the websocket"
+    )
+    @MessageMapping("/leave-room/{roomCode}")
+    @SendTo("/room/{roomCode}")
+    public void leaveRoomWS(
+            @DestinationVariable("roomCode") String roomCode,
+            @RequestBody ActionDTO action
+    ) throws FunctionalException {
+        gameService.quitGame(roomCode, action.getPlayerUUID());
+    }
+
 }
