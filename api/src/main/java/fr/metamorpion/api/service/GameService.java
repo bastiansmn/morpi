@@ -176,7 +176,7 @@ public class GameService {
     public boolean isAMovePossible(String roomCode, String playerUUID,  int posI, int posJ) throws FunctionalException{
         positionIsCorrect(posI, posJ);
         Game game = findByRoomCode(roomCode);
-        playerUUIDisCoherent(playerUUID, game);
+        if (!playerUUIDisCoherent(playerUUID, game)) return false;
         String subGridUuid = getTheSubGridUuid(posI, posJ, game);
 
         int i = posI/GameConstants.GRID_SIZE;
@@ -189,24 +189,18 @@ public class GameService {
     }
 
     private void positionIsCorrect(int posI, int posJ) throws FunctionalException {
-        if (posI < 0 || posJ < 0 || posI >= GameConstants.GRID_SIZE || posJ >= GameConstants.GRID_SIZE) {
+        if (posI < 0 || posJ < 0 || posI >= GameConstants.GRID_SIZE*GameConstants.GRID_SIZE || posJ >= GameConstants.GRID_SIZE*GameConstants.GRID_SIZE) {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005
             );
         }
     }
 
-    private void playerUUIDisCoherent(String playerUUID, Game game) throws FunctionalException{
-        if (game.getPlayer1() == null || game.getPlayer2() == null)
-            throw new FunctionalException(
-                    FunctionalRule.PLAYER_0001
-            );
-        if (!game.getPlayer1().getUuid().equals(playerUUID) &&
-            !game.getPlayer2().getUuid().equals(playerUUID)) {
-            throw new FunctionalException(
-                    FunctionalRule.PLAYER_0001
-            );
-        }
+    private boolean playerUUIDisCoherent(String playerUUID, Game game) {
+        if (game.getPlayer1() != null && game.getPlayer1().getUuid().equals(playerUUID))
+            return true;
+
+        return game.getPlayer2() != null && game.getPlayer2().getUuid().equals(playerUUID);
     }
 
     private String getTheSubGridUuid(int i, int j, Game game) {

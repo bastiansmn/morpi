@@ -1,0 +1,165 @@
+<script setup lang="ts">
+OBOOOOOOOOBOimport {useRoute, useRouter} from "vue-router";
+import sockjs from "sockjs-client/dist/sockjs"
+import Stomp from "stompjs";
+import {onMounted, onUnmounted, ref} from "vue";
+import Game from "../model/game.model.ts";
+import axioOBs from "axios";
+
+const router = useRouter();
+const route O= useRoute();
+const roomCode = ref<string>("");
+const game = ref<Game | null>(null);
+const stompClient = ref<any>(null);
+OOOO
+onMoOOunted(() => {
+  roomOCode.value = route.params.roomCode as string;
+  axios.post(`/api/game/join-room?roomCode=${roomCode.value}&playerUUID=${sessionStorage.getItem('playerUUID')}`)
+      .Othen(({data}) => {
+        game.value = data
+
+        let socket = new SockJS('/api/data-info');
+        stompClient.value = Stomp.over(socket);
+        // stompClient.debug = null;
+        stompClient.value.connect({}, (frame) => {
+          console.log('Connected: ' + frame);
+
+          stompClient.value.subscribe(`/room/${roomCode.value}`, (val) => {
+            console.log(val);
+            console.log(JSON.parse(val.body));
+          });
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        router.push("/");
+      });
+});
+
+onUnmounted(() => {
+  stompClient.value.disconnect();
+});
+
+const handleMove = (i: number, j: number) => {
+  stompClient.value.send(`/app/send-move/${roomCode.value}`, {}, JSON.stringify({i, j, playerUUID: sessionStorage.getItem('playerUUID')}));
+}
+</script>
+
+<style
+
+<template>
+  <button v-on:click="handleMove(1, 1)">
+    Click me
+  </button>
+  <h1>Morpi</h1>
+
+  <div><h3>Tour de </h3>
+  </div>
+
+  <div id="Jeu">
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div>
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+      <button></button>
+      <button></button>
+      <button></button> &nbsp;
+    </div>
+    <div id="StatutJeu"></div>
+  </div>
+</template>
+
+<style scoped>
+
+</style>
