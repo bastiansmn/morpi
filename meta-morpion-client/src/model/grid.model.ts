@@ -1,11 +1,11 @@
 export default interface Grid {
    uuid: string;
-   subgrids: Subgrid[];
+   subgrids: Subgrid[][];
 }
 
 export interface Subgrid {
    uuid: string;
-   cells: CellStatus[];
+   cells: CellStatus[][];
    playable: boolean;
    winner: CellStatus;
 }

@@ -7,7 +7,7 @@ export default interface Game {
 
    player1?: Player;
    player2?: Player;
-   winner: Player;
+   winner: string;
    currentPlayerId: string;
    subgridToPlayId: string;
    currentSymbol: CellStatus;

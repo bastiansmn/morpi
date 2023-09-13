@@ -175,7 +175,8 @@ public class GameController {
         boolean movePossible = gameService.isAMovePossible(roomCode, playerUUID, i, j);
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, playerUUID, i, j);
-            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, i, j, gameFinished));
+            Game game = gameService.findByRoomCode(roomCode);
+            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, game.getCurrentPlayerId(), i, j, gameFinished, game.getWinner().getUuid()));
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,
@@ -202,7 +203,8 @@ public class GameController {
         boolean movePossible = gameService.isAMovePossible(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), action.getI(), action.getJ(), gameFinished);
+            Game game = gameService.findByRoomCode(roomCode);
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), action.getI(), action.getJ(), gameFinished, game.getWinner().getUuid());
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,

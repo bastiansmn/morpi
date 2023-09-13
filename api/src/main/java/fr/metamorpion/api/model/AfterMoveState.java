@@ -11,7 +11,9 @@ public class AfterMoveState {
     private final String type = "AFTER_MOVE";
     private final String roomCode;
     private final String playerUUID;
+    private final String nextPlayerUUID;
     private final int i;
     private final int j;
     private final boolean isGameFinished;
+    private final String winnerUUID;
 }

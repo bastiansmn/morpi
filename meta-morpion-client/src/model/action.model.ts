@@ -4,5 +4,7 @@ export interface AfterMoveState {
     i: number;
     j: number;
     playerUUID: string;
+    nextPlayerUUID: string;
+    winnerUUID: string;
     roomCode: string;
 }

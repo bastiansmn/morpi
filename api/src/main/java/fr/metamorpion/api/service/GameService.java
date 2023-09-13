@@ -187,13 +187,15 @@ public class GameService {
      * @return true if it's possible
      */
     public boolean isAMovePossible(String roomCode, String playerUUID,  int posI, int posJ) throws FunctionalException{
-        positionIsCorrect(posI, posJ);
         Game game = findByRoomCode(roomCode);
+        if(game.isFinished()) return false;
+
+        positionIsCorrect(posI, posJ);
         if (!playerUUIDisCoherent(playerUUID, game)) return false;
         String subGridUuid = getTheSubGridUuid(posI, posJ, game);
 
-        int i = posI/GameConstants.GRID_SIZE;
-        int j = posJ/GameConstants.GRID_SIZE;
+        int i = posI % GameConstants.GRID_SIZE;
+        int j = posJ % GameConstants.GRID_SIZE;
 
         boolean gameIsFull = game.getPlayer1() != null && game.getPlayer2() != null;
         boolean cellIsEmpty = cellIsEmpty(game, i, j, subGridUuid);
@@ -287,8 +289,8 @@ public class GameService {
         Subgrid subgrid = getSubGrid(game, subGribUuid);
         assert subgrid != null;
 
-        int i = posI/GameConstants.GRID_SIZE;
-        int j = posJ/GameConstants.GRID_SIZE;
+        int i = posI % GameConstants.GRID_SIZE;
+        int j = posJ % GameConstants.GRID_SIZE;
         subgrid.getCells()[i][j] = game.getCurrentSymbol();
 
         if (game.getCurrentSymbol().equals(CellStatus.X)) {
