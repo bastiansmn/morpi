@@ -1,3 +1,5 @@
+import {CellStatus} from "./grid.model.ts";
+
 export interface AfterMoveState {
     type: 'AFTER_MOVE';
     gameFinished: boolean;
@@ -5,6 +7,8 @@ export interface AfterMoveState {
     j: number;
     playerUUID: string;
     nextPlayerUUID: string;
+    nextSymbol: CellStatus;
+    subgridToPlayId: string;
     winnerUUID: string;
     roomCode: string;
 }

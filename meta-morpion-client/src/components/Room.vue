@@ -2,7 +2,7 @@
 import {useRoute, useRouter} from "vue-router";
 import sockjs from "sockjs-client/dist/sockjs"
 import Stomp from "stompjs";
-import {onMounted, onUnmounted, ref} from "vue";
+import {computed, onMounted, onUnmounted, ref} from "vue";
 import Game, {GameType} from "../model/game.model.ts";
 import axios from "axios";
 import {AfterMoveState} from "../model/action.model.ts";
@@ -14,8 +14,11 @@ const roomCode = ref<string>("");
 const game = ref<Game | null>(null);
 const stompClient = ref<any>(null);
 
+const GRID_SIZE = ref(3);
+const SUBGRID_SIZE = ref(3);
+
 const computeCell = (i: number, j: number, ii: number, jj: number) => {
-  return {i: ((ii-1)+((i-1)*3)), j: ((jj-1)+((j-1)*3))};
+  return {i: ((ii)+((i)*3)), j: ((jj)+((j)*3))};
 }
 
 onMounted(() => {
@@ -26,7 +29,7 @@ onMounted(() => {
 
         let socket = sockjs('/api/data-info');
         stompClient.value = Stomp.over(socket);
-        stompClient.debug = null;
+        // stompClient.value.debug = null;
         stompClient.value.connect({}, (frame: any) => {
           console.log('Connected: ' + frame);
 
@@ -34,10 +37,18 @@ onMounted(() => {
             console.log(JSON.parse(val.body));
             const body: AfterMoveState = JSON.parse(val.body);
 
+            const i = Math.floor(body.i / GRID_SIZE.value);
+            const j = Math.floor(body.j / GRID_SIZE.value);
+            const ii = body.i % SUBGRID_SIZE.value;
+            const jj = body.j % SUBGRID_SIZE.value;
+
             if (!game.value) return;
             game.value.currentPlayerId = body.nextPlayerUUID;
             game.value.finished = body.gameFinished;
             game.value.winner = body.winnerUUID;
+            game.value.grid.subgrids[i][j].cells[ii][jj] = body.nextSymbol;
+            game.value.currentSymbol = body.nextSymbol;
+            game.value.subgridToPlayId = body.subgridToPlayId;
 
             if(game.value.finished) {
               let winner = (game.value?.player1.uuid === game.value?.winner) ? game.value.player1 : game.value.player2;
@@ -49,20 +60,9 @@ onMounted(() => {
                 const cell = document.querySelector(`#cell-${body.i}-${body.j}`);
                 if (!cell) return;
 
-                if (game.value?.player1.uuid == body.playerUUID) {
-                  cell.setAttribute("disabled", "true");
-                  cell.classList.add("bg-red-700");
-                  cell.classList.add("cursor-not-allowed");
-                  cell.classList.remove("hover:bg-cyan-400");
-                  cell.classList.remove("cursor-pointer");
-                } else {
-                  cell.setAttribute("disabled", "true");
-                  cell.classList.add("bg-green-700");
-                  cell.classList.add("cursor-not-allowed");
-                  cell.classList.remove("hover:bg-cyan-400");
-                  cell.classList.remove("cursor-pointer");
-                }
-
+                cell.setAttribute("disabled", "true");
+                cell.classList.add("cursor-not-allowed");
+                cell.classList.remove("cursor-pointer");
 
                 break;
             }
@@ -98,8 +98,11 @@ const handleMove = (opt: {i: number, j: number}) => {
   }
 }
 
-const GRID_SIZE = ref(3);
-const SUBGRID_SIZE = ref(3);
+const getPlayerTurn = computed(() => {
+  return (game.value?.currentPlayerId === game.value?.player1?.uuid
+        ? game.value?.player1?.username
+        : game.value?.player2?.username);
+})
 
 const getCell = (i: number, j: number, ii: number, jj: number) => {
   // @ts-ignore
@@ -109,7 +112,7 @@ const getCell = (i: number, j: number, ii: number, jj: number) => {
 
 <template>
   <div>
-    <h3 id="turn">Tour de {{game?.currentPlayerId === game?.player1?.uuid ? game?.player1?.username : game?.player2?.username}} ({{game?.currentSymbol}})</h3>
+    <h3 id="turn">Tour de {{ getPlayerTurn }} ({{ game?.currentSymbol }})</h3>
   </div>
 
   <div id="Players">
@@ -120,23 +123,27 @@ const getCell = (i: number, j: number, ii: number, jj: number) => {
 
   <div id="Jeu">
     <div class="grid grid-rows-1 grid-cols-3">
-      <div v-for="j in GRID_SIZE">
-        <div v-for="i in GRID_SIZE">
-          <div class="grid grid-rows-1 grid-cols-3 m-2">
-            <div v-for="jj in SUBGRID_SIZE">
+      <div v-for="(sgI, i) in game?.grid.subgrids">
+        <div v-for="(sgJ, j) in sgI">
+          <div
+              :id="sgJ.uuid"
+              class="grid grid-rows-1 grid-cols-3 m-2 rounded"
+              :class="{ 'outline': game?.subgridToPlayId === sgJ.uuid, 'outline-2': game?.subgridToPlayId === sgJ.uuid }"
+          >
+            <div v-for="(cellI, ii) in sgJ.cells">
               <div
-                  :id="`cell-${((ii-1)+((i-1)*3))}-${((jj-1)+((j-1)*3))}`"
+                  :id="`cell-${ii+i*3}-${jj+j*3}`"
                   class="cell p-5 bg-cyan-700 hover:bg-cyan-400 cursor-pointer rounded m-1 relative"
-                  v-for="ii in SUBGRID_SIZE"
+                  v-for="(cellStatus, jj) in cellI"
                   @click="handleMove(computeCell(i, j, ii, jj))"
               >
-                <span v-if="getCell(i, j, ii, jj) === CellStatus.EMPTY" class="absolute">
+                <span v-if="cellStatus === CellStatus.EMPTY" class="absolute">
                   &nbsp;
                 </span>
-                <span v-if="getCell(i, j, ii, jj) === CellStatus.X" class="font-bold text-2xl">
+                <span v-if="cellStatus === CellStatus.X" class="font-bold text-2xl">
                   &#10005;
                 </span>
-                <span v-if="getCell(i, j, ii, jj) === CellStatus.O" class="font-semibold text-2xl">
+                <span v-if="cellStatus === CellStatus.O" class="font-semibold text-2xl">
                   O
                 </span>
               </div>

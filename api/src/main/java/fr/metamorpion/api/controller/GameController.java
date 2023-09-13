@@ -59,8 +59,8 @@ public class GameController {
     }
 
     @Operation(
-            summary = "Register a new user",
-            description = "Register the user according to the name and saves him to a list of players"
+            summary = "Register a new user (optional)",
+            description = "(Optional) Register the user according to the name and saves him to a list of players"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200")
@@ -71,20 +71,20 @@ public class GameController {
     }
 
     @Operation(
-            summary = "Create a new room",
-            description = "Creates a new room with the given player as admin (1st player). Creates the user if not exists"
+            summary = "Create a new room/game",
+            description = "Creates a new room with the given player as admin (1st player - not to be confused with first player to play). Creates the user if he does not exist"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200")
     })
     @PostMapping("create")
-    public ResponseEntity<Game> createGame(@RequestParam("gameType") GameType gameType, @RequestParam("playerUUID") String playerUUID, @RequestParam("firstToPlay") boolean isFirstToPlay) throws FunctionalException {
+    public ResponseEntity<Game> createGame(@RequestParam("gameType") GameType gameType, @RequestParam(value = "playerUUID", required = false) String playerUUID, @RequestParam("firstToPlay") boolean isFirstToPlay) {
         return ResponseEntity.ok(gameService.createGame(gameType, playerUUID, isFirstToPlay));
     }
 
     @Operation(
             summary = "Join a room",
-            description = "Join a room with the room code associated. Creates the user if he doesn't exist"
+            description = "Join a room with the room code associated. Creates the user if he does not exist"
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200"),
@@ -140,10 +140,12 @@ public class GameController {
 
     @Operation(
             summary = "Send a move",
-            description = "Send a move to the associated roomcode. The response specifies if the move could be played : if so, the player receives the updated game state, otherwise an error message"
+            description = "Send a move to the associated roomcode. The response specifies if the move could be played : if so, the player receives the updated game state, otherwise an error message."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200"),
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Move was played. If the game is finished, the winner can be null/empty if it is a tie (otherwise the winner's UUID)"),
             @ApiResponse(
                     responseCode = "400",
                     description = "User not in game",
@@ -168,15 +170,15 @@ public class GameController {
     @PostMapping("send-move")
     public ResponseEntity<AfterMoveState> sendMove(
             @RequestParam("roomCode") String roomCode,
-            @RequestParam("playerUUID") String playerUUID,
-            @Parameter(description = "Absolute line number in grid") @RequestParam("i") int i,
-            @Parameter(description = "Absolute column number in grid")@RequestParam("j") int j
+            @Parameter(description = "UUID of who is sending the move") @RequestParam("playerUUID") String playerUUID,
+            @Parameter(description = "Absolute line number in the big grid") @RequestParam("i") int i,
+            @Parameter(description = "Absolute column number in the big grid")@RequestParam("j") int j
     ) throws FunctionalException {
         boolean movePossible = gameService.isAMovePossible(roomCode, playerUUID, i, j);
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, playerUUID, i, j);
             Game game = gameService.findByRoomCode(roomCode);
-            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, game.getCurrentPlayerId(), i, j, gameFinished, game.getWinner().getUuid()));
+            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), i, j, gameFinished, game.getWinner().getUuid()));
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,
@@ -204,7 +206,7 @@ public class GameController {
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
             Game game = gameService.findByRoomCode(roomCode);
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), action.getI(), action.getJ(), gameFinished, game.getWinner().getUuid());
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,

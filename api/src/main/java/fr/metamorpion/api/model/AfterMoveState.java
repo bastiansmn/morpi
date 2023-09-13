@@ -12,6 +12,8 @@ public class AfterMoveState {
     private final String roomCode;
     private final String playerUUID;
     private final String nextPlayerUUID;
+    private final CellStatus nextSymbol;
+    private final String subgridToPlayId;
     private final int i;
     private final int j;
     private final boolean isGameFinished;

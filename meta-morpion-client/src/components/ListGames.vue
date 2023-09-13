@@ -22,7 +22,7 @@ function registerPlayer(){
 
   return axios.post("/api/game/register", null, {
     params: {
-      username: pseudoInput?.value
+      username: pseudoInput?.value.length === 0 ? "guest" : pseudoInput?.value
     }
   })
 }

@@ -253,6 +253,21 @@ public class GameService {
     }
 
     /**
+     * Check if a subGrid is full
+     * @param subgrid subgrid to check
+     * @return true if the subGrid is full
+     */
+    private boolean subGridIsFull(Subgrid subgrid) {
+        CellStatus[][] cells = subgrid.getCells();
+        for(int i = 0; i < GameConstants.SUBGRID_SIZE; i++){
+            for(int j = 0; j < GameConstants.SUBGRID_SIZE; j++) {
+                if(cells[i][j] == CellStatus.EMPTY) return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Check if our subGrid is the actual subGrid we need to play in
      * (check si notre subgrid est celle où on doit jouer)
      * @param game the current game
@@ -314,8 +329,10 @@ public class GameService {
                 (long) posJ
         );
 
+        if (subGridIsFull(subgrid)) {
+            subgrid.setPlayable(false);
+        }
         if (isSubgridFinished(subgrid))  {
-            game.setSubgridToPlayId(null);
             return isGameFinished(game);
         } else {
             return false;
@@ -323,7 +340,12 @@ public class GameService {
     }
 
     private void calculateTheSubGridToPlay(Game game, int i, int j) {
-        game.setSubgridToPlayId(game.getGrid().getSubgrids()[i][j].getUuid());
+        Subgrid subgrid = game.getGrid().getSubgrids()[i][j];
+        if (subgrid.isPlayable()) {
+            game.setSubgridToPlayId(subgrid.getUuid());
+        } else {
+            game.setSubgridToPlayId(null);
+        }
     }
 
     private boolean isSubgridFinished(Subgrid subgrid) {
@@ -381,19 +403,33 @@ public class GameService {
 
         for(int i = 0; i < 3; i++) {
             if (isTheSameCells(i, true, gridToCells)) {
+                game.setFinished(true);
                 setTheWinner(gridToCells[0][i], game);
                 return true;
             } else if (isTheSameCells(i, false, gridToCells)) {
+                game.setFinished(true);
                 setTheWinner(gridToCells[i][0], game);
                 return true;
             }
         }
         if (isTheSameCellsForDiagonale(gridToCells)){
+            game.setFinished(true);
             setTheWinner(gridToCells[1][1], game);
             return true;
-        } else {
-            return false;
         }
+
+        return isWholeGridPlayable(game); // if the grid is full, the game is finished with no winner (null)
+    }
+
+    private boolean isWholeGridPlayable(Game game) {
+        Subgrid[][] subgrids = game.getGrid().getSubgrids();
+        for(int i = 0; i < GameConstants.GRID_SIZE; i++) {
+            for(int j = 0; j < GameConstants.GRID_SIZE; j++) {
+                if(subgrids[i][j].isPlayable()) return true;
+            }
+        }
+        game.setFinished(true);
+        return false;
     }
 
     private void setTheWinner(CellStatus cellStatus, Game game) {
