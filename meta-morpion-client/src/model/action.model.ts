@@ -9,6 +9,7 @@ export interface AfterMoveState {
     nextPlayerUUID: string;
     nextSymbol: CellStatus;
     subgridToPlayId: string;
+    finishedSubgrid: string;
     winnerUUID: string;
     roomCode: string;
 }

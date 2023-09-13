@@ -418,18 +418,18 @@ public class GameService {
             return true;
         }
 
-        return isWholeGridPlayable(game); // if the grid is full, the game is finished with no winner (null)
+        return isWholeGridNotPlayable(game); // if the grid is full, the game is finished with no winner (null)
     }
 
-    private boolean isWholeGridPlayable(Game game) {
+    private boolean isWholeGridNotPlayable(Game game) {
         Subgrid[][] subgrids = game.getGrid().getSubgrids();
         for(int i = 0; i < GameConstants.GRID_SIZE; i++) {
             for(int j = 0; j < GameConstants.GRID_SIZE; j++) {
-                if(subgrids[i][j].isPlayable()) return true;
+                if(subgrids[i][j].isPlayable()) return false;
             }
         }
         game.setFinished(true);
-        return false;
+        return true;
     }
 
     private void setTheWinner(CellStatus cellStatus, Game game) {

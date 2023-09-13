@@ -18,8 +18,54 @@ const GRID_SIZE = ref(3);
 const SUBGRID_SIZE = ref(3);
 
 const computeCell = (i: number, j: number, ii: number, jj: number) => {
-  return {i: ((ii)+((i)*3)), j: ((jj)+((j)*3))};
+  return {i: ((ii) + ((i) * 3)), j: ((jj) + ((j) * 3))};
 }
+
+const confetti = ref<HTMLCanvasElement | null>(null);
+
+const fireConfetti = function fireConfetti() {
+  const ctx = confetti.value?.getContext('2d');
+
+  let confettiParticles = Array.from({length: 500}).map(() => ({
+    x: Math.random() * window.innerWidth,
+    y: 0,
+    radius: Math.random() * 10 + 1,
+    speedX: Math.random() * 3 - 1.5,
+    speedY: Math.random() * 3 + 1,
+    color: ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff"][Math.floor(Math.random() * 6)],
+    shape: Math.random() < 0.5 ? "circle" : "square",
+  }));
+
+  const animateConfetti = () => {
+    console.log(confetti, ctx);
+    if (!confetti || !ctx) return;
+    ctx.clearRect(0, 0, confetti.value?.width ?? 0, confetti.value?.height ?? 0);
+
+    confettiParticles.forEach(particle => {
+      ctx.fillStyle = particle.color;
+      if (particle.shape === "circle") {
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(particle.x, particle.y, particle.radius * 2, particle.radius * 2);
+      }
+
+      particle.x += particle.speedX;
+      particle.y += particle.speedY;
+
+      if (particle.y > window.innerHeight) {
+        particle.y = 0;
+        particle.x = Math.random() * window.innerWidth;
+      }
+    });
+
+    requestAnimationFrame(animateConfetti);
+  };
+
+  console.log("fire confetti");
+  animateConfetti();
+};
 
 onMounted(() => {
   roomCode.value = route.params.roomCode as string;
@@ -46,13 +92,14 @@ onMounted(() => {
             game.value.currentPlayerId = body.nextPlayerUUID;
             game.value.finished = body.gameFinished;
             game.value.winner = body.winnerUUID;
-            game.value.grid.subgrids[i][j].cells[ii][jj] = body.nextSymbol;
+            game.value.grid.subgrids[i][j].cells[ii][jj] = game.value.currentSymbol;
             game.value.currentSymbol = body.nextSymbol;
             game.value.subgridToPlayId = body.subgridToPlayId;
 
-            if(game.value.finished) {
+            if (game.value.finished) {
+              fireConfetti();
               let winner = (game.value?.player1.uuid === game.value?.winner) ? game.value.player1 : game.value.player2;
-              alert(winner.username + " gagne la partie!");
+              // alert(winner.username + " gagne la partie!");
             }
 
             switch (body.type) {
@@ -80,8 +127,8 @@ onUnmounted(() => {
   stompClient.value.disconnect();
 });
 
-const handleMove = (opt: {i: number, j: number}) => {
-  if(!game.value?.finished) {
+const handleMove = (opt: { i: number, j: number }) => {
+  if (!game.value?.finished) {
     // Check if cell is disabled
     const cell = document.querySelector(`#cell-${opt.i}-${opt.j}`);
     if (!cell) return;
@@ -100,14 +147,9 @@ const handleMove = (opt: {i: number, j: number}) => {
 
 const getPlayerTurn = computed(() => {
   return (game.value?.currentPlayerId === game.value?.player1?.uuid
-        ? game.value?.player1?.username
-        : game.value?.player2?.username);
+      ? game.value?.player1?.username
+      : game.value?.player2?.username);
 })
-
-const getCell = (i: number, j: number, ii: number, jj: number) => {
-  // @ts-ignore
-  return game.value?.grid.subgrids[i-1][j-1].cells[ii-1][jj-1];
-}
 </script>
 
 <template>
@@ -154,6 +196,7 @@ const getCell = (i: number, j: number, ii: number, jj: number) => {
     </div>
     <div id="StatutJeu"></div>
   </div>
+  <canvas ref="confetti"></canvas>
 </template>
 
 <style scoped>
@@ -162,5 +205,15 @@ const getCell = (i: number, j: number, ii: number, jj: number) => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+  pointer-events: none;
 }
 </style>
