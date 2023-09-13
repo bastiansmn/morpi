@@ -93,13 +93,14 @@ onMounted(() => {
             game.value.finished = body.gameFinished;
             game.value.winner = body.winnerUUID;
             game.value.grid.subgrids[i][j].cells[ii][jj] = game.value.currentSymbol;
+            game.value.grid.subgrids[i][j].playable = (body.completedSubgridId !== game.value.grid.subgrids[i][j].uuid);
+            game.value.grid.subgrids[i][j].winner = body.completedSubgridId === game.value.grid.subgrids[i][j].uuid ? game.value.currentSymbol : null;
             game.value.currentSymbol = body.nextSymbol;
             game.value.subgridToPlayId = body.subgridToPlayId;
 
+
             if (game.value.finished) {
               fireConfetti();
-              let winner = (game.value?.player1.uuid === game.value?.winner) ? game.value.player1 : game.value.player2;
-              // alert(winner.username + " gagne la partie!");
             }
 
             switch (body.type) {
@@ -169,9 +170,14 @@ const getPlayerTurn = computed(() => {
         <div v-for="(sgJ, j) in sgI">
           <div
               :id="sgJ.uuid"
-              class="grid grid-rows-1 grid-cols-3 m-2 rounded"
-              :class="{ 'outline': game?.subgridToPlayId === sgJ.uuid, 'outline-2': game?.subgridToPlayId === sgJ.uuid }"
+              class="subgrid grid grid-rows-1 grid-cols-3 m-2 rounded"
+              :class="{ 'outline': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'outline-2': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'completed': !sgJ.playable }"
           >
+            <div class="subgrid-status">
+              <div v-if="sgJ.playable" class="text-2xl font-bold text-white"></div>
+              <div v-if="!sgJ.playable && sgJ.winner === CellStatus.X" class="text-2xl font-bold text-white">&#10005;</div>
+              <div v-if="!sgJ.playable && sgJ.winner === CellStatus.O" class="text-2xl font-bold text-white">O</div>
+            </div>
             <div v-for="(cellI, ii) in sgJ.cells">
               <div
                   :id="`cell-${ii+i*3}-${jj+j*3}`"
@@ -199,12 +205,47 @@ const getPlayerTurn = computed(() => {
   <canvas ref="confetti"></canvas>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .cell > span {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+.subgrid {
+  user-select: none;
+  position: relative;
+
+  & > .subgrid-status {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    & > div {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      font-size: 8rem;
+    }
+  }
+
+  &.completed {
+    cursor: not-allowed;
+
+    & > .subgrid-status > div {
+      z-index: 9999;
+    }
+
+    & .cell {
+      background: #213547;
+      pointer-events: none;
+    }
+  }
 }
 
 canvas {

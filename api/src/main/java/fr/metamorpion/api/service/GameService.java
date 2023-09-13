@@ -314,8 +314,6 @@ public class GameService {
             game.setCurrentSymbol(CellStatus.X);
         }
 
-        calculateTheSubGridToPlay(game, i, j);
-
         if (playerUUID.equals(game.getPlayer1().getUuid())) {
             game.setCurrentPlayerId(game.getPlayer2().getUuid());
         } else if (playerUUID.equals(game.getPlayer2().getUuid())) {
@@ -333,8 +331,10 @@ public class GameService {
             subgrid.setPlayable(false);
         }
         if (isSubgridFinished(subgrid))  {
+            calculateTheSubGridToPlay(game, i, j);
             return isGameFinished(game);
         } else {
+            calculateTheSubGridToPlay(game, i, j);
             return false;
         }
     }

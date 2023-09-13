@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "devhost": "vite --host",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },
@@ -22,6 +23,7 @@
     "@vue/cli-plugin-router": "~5.0.0",
     "autoprefixer": "^10.4.15",
     "postcss": "^8.4.29",
+    "sass": "^1.66.1",
     "sockjs-client": "^1.5.1",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.0.2",

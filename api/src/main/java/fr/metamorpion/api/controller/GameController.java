@@ -21,6 +21,8 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.stream.Stream;
 
 @Tag(name = "Game controller", description = "Game managing (create or join game, register player, ...")
 @RestController
@@ -175,10 +177,23 @@ public class GameController {
             @Parameter(description = "Absolute column number in the big grid")@RequestParam("j") int j
     ) throws FunctionalException {
         boolean movePossible = gameService.isAMovePossible(roomCode, playerUUID, i, j);
+        Game game = gameService.findByRoomCode(roomCode);
+        List<Subgrid> subGridsBeforeMove = Stream.of( game.getGrid().getSubgrids() )
+                .flatMap(Stream::of)
+                .filter(Subgrid::isPlayable)
+                .toList();
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, playerUUID, i, j);
-            Game game = gameService.findByRoomCode(roomCode);
-            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), i, j, gameFinished, game.getWinner().getUuid()));
+            List<Subgrid> subGridsAfterMove = Stream.of( game.getGrid().getSubgrids() )
+                    .flatMap(Stream::of)
+                    .filter(Subgrid::isPlayable)
+                    .toList();
+            var completedSubGrid = subGridsBeforeMove.stream()
+                    .filter(subgrid -> !subGridsAfterMove.contains(subgrid))
+                    .map(Subgrid::getUuid)
+                    .findFirst()
+                    .orElse(null);
+            return ResponseEntity.ok(new AfterMoveState(roomCode, playerUUID, game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, i, j, gameFinished, game.getWinner().getUuid()));
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,
@@ -203,10 +218,23 @@ public class GameController {
             @RequestBody ActionDTO action
     ) throws FunctionalException {
         boolean movePossible = gameService.isAMovePossible(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
+        Game game = gameService.findByRoomCode(roomCode);
+        List<Subgrid> subGridsBeforeMove = Stream.of( game.getGrid().getSubgrids() )
+                .flatMap(Stream::of)
+                .filter(Subgrid::isPlayable)
+                .toList();
         if (movePossible) {
             boolean gameFinished = gameService.playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
-            Game game = gameService.findByRoomCode(roomCode);
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
+            List<Subgrid> subGridsAfterMove = Stream.of( game.getGrid().getSubgrids() )
+                    .flatMap(Stream::of)
+                    .filter(Subgrid::isPlayable)
+                    .toList();
+            var completedSubGrid = subGridsBeforeMove.stream()
+                    .filter(subgrid -> !subGridsAfterMove.contains(subgrid))
+                    .map(Subgrid::getUuid)
+                    .findFirst()
+                    .orElse(null);
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid,  action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,
