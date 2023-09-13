@@ -8,6 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class AfterMoveState {
+    private final String type = "AFTER_MOVE";
     private final String roomCode;
     private final String playerUUID;
     private final int i;

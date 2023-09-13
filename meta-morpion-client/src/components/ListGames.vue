@@ -102,7 +102,7 @@ function gameForm($event: any) {
         <span class="font-bold">
          {{ game.roomCode }}
         </span>
-         <span>&nbsp;- Partie de {{ game.player1.username }}
+         <span>&nbsp;- Partie de {{ game.player1?.username }}
         </span>
       </router-link>
   </div>

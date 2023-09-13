@@ -182,10 +182,12 @@ public class GameService {
         int i = posI/GameConstants.GRID_SIZE;
         int j = posJ/GameConstants.GRID_SIZE;
 
-        return cellIsEmpty(game, i, j, subGridUuid) &&
-                subGridPlayable(game, subGridUuid) &&
-                inTheSubGrid(game, subGridUuid) &&
-                playerUUID.equals(game.getCurrentPlayerId());
+        boolean gameIsFull = game.getPlayer1() != null && game.getPlayer2() != null;
+        boolean cellIsEmpty = cellIsEmpty(game, i, j, subGridUuid);
+        boolean subGridPlayable = subGridPlayable(game, subGridUuid);
+        boolean inTheSubGrid = inTheSubGrid(game, subGridUuid);
+        boolean playerIsCorrect = playerUUID.equals(game.getCurrentPlayerId());
+        return gameIsFull && cellIsEmpty && subGridPlayable && inTheSubGrid && playerIsCorrect;
     }
 
     private void positionIsCorrect(int posI, int posJ) throws FunctionalException {
@@ -243,6 +245,7 @@ public class GameService {
      * @return true
      */
     private boolean inTheSubGrid(Game game, String subGridUuid) {
+        if (game.getSubgridToPlayId() == null) return true;
         return game.getSubgridToPlayId().equals(subGridUuid);
     }
 

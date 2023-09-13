@@ -20,7 +20,7 @@ public class Game {
     private Player player1, player2;
     private Player winner;
     private String currentPlayerId = "";
-    private String subgridToPlayId = "";
+    private String subgridToPlayId;
     private CellStatus currentSymbol = CellStatus.X;
     private boolean started = false;
     private boolean finished = false;
