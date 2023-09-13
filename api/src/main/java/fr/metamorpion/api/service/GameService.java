@@ -40,15 +40,24 @@ public class GameService {
      * @param gameType Choose the type of game you want to start
      * @return the game just created
      */
-    public Game createGame(GameType gameType, String playerUUID, boolean isFirstToPlay) throws FunctionalException {
+    public Game createGame(GameType gameType, String playerUUID, boolean isFirstToPlay) {
         Player player = players.getOrDefault(playerUUID, null);
         if (player == null) {
             player = registerPlayer("guest");
         }
 
-
         switch (gameType) {
-            default -> {
+            case PVP_LOCAL -> {
+                var game = new Game(gameType);
+                game.setPlayer1(player);
+                game.setPlayer2(registerPlayer("guest"));
+                if(isFirstToPlay){
+                    game.setCurrentPlayerId(player.getUuid());
+                }
+                games.put(game.getRoomCode(), game);
+                return game;
+            }
+            case PVP_ONLINE -> {
                 var game = new Game(gameType);
                 game.setPlayer1(player);
                 if(isFirstToPlay){
@@ -56,6 +65,10 @@ public class GameService {
                 }
                 games.put(game.getRoomCode(), game);
                 return game;
+            }
+            default -> {
+                // TODO IA
+                return null;
             }
         }
 
@@ -299,8 +312,12 @@ public class GameService {
                 (long) posJ
         );
 
-        if (isSubgridFinished(subgrid)) return isGameFinished(game);
-        return false;
+        if (isSubgridFinished(subgrid))  {
+            game.setSubgridToPlayId(null);
+            return isGameFinished(game);
+        } else {
+            return false;
+        }
     }
 
     private void calculateTheSubGridToPlay(Game game, int i, int j) {

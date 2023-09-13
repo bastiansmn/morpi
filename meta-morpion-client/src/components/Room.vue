@@ -72,12 +72,8 @@ const SUBGRID_SIZE = ref(3);
 </script>
 
 <template>
-  <button v-on:click="handleMove({i: 1, j: 1})">
-    Click me
-  </button>
-  <h1>MorPi</h1>
-
-  <div><h3>Tour de </h3>
+  <div>
+    <h3>Tour de </h3>
   </div>
 
   <div id="Jeu">
