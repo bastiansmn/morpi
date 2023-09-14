@@ -29,7 +29,7 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Socket endpoint
         registry.addEndpoint("/data-info")
-                .setAllowedOrigins(allowedOrigins.toArray(new String[0]))
+                .setAllowedOriginPatterns(allowedOrigins.toArray(new String[0]))
                 .withSockJS();
     }
 
