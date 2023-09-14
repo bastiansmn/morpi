@@ -3,16 +3,40 @@ package fr.metamorpion.api.service;
 import fr.metamorpion.api.constants.GameConstants;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
-import fr.metamorpion.api.model.*;
+import fr.metamorpion.api.model.ActionDTO;
+import fr.metamorpion.api.model.CellStatus;
+import fr.metamorpion.api.model.Game;
+import fr.metamorpion.api.model.GameType;
+import fr.metamorpion.api.model.Player;
+import fr.metamorpion.api.model.Subgrid;
+import fr.metamorpion.api.model.api_d.QuitResponse;
+import fr.metamorpion.api.model.api_d.StartResponse;
+import fr.metamorpion.api.model.api_e.GameE;
+import fr.metamorpion.api.model.api_e.GridDTO;
+import fr.metamorpion.api.model.api_e.PlayerE;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.sql.ast.tree.expression.Star;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.simp.stomp.StompHeaders;
+import org.springframework.messaging.simp.stomp.StompSession;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+
+import static org.springframework.util.MimeTypeUtils.APPLICATION_JSON;
 
 @Service
 @RequiredArgsConstructor
@@ -51,7 +75,7 @@ public class GameService {
                 var game = new Game(gameType);
                 game.setPlayer1(player);
                 game.setPlayer2(registerPlayer("guest"));
-                if(isFirstToPlay){
+                if (isFirstToPlay) {
                     game.setCurrentPlayerId(player.getUuid());
                 }
                 games.put(game.getRoomCode(), game);
@@ -60,24 +84,64 @@ public class GameService {
             case PVP_ONLINE -> {
                 var game = new Game(gameType);
                 game.setPlayer1(player);
-                if(isFirstToPlay){
+                if (isFirstToPlay) {
                     game.setCurrentPlayerId(player.getUuid());
                 }
                 games.put(game.getRoomCode(), game);
                 return game;
             }
             default -> {
-                // TODO IA
-                return null;
+                var game = new Game(gameType);
+                game.setPlayer1(player);
+                game.setPlayer2(registerPlayer("IA"));
+                game.setCurrentPlayerId(player.getUuid());
+                games.put(game.getRoomCode(), game);
+                return game;
             }
         }
 
+    }
+
+    public void initGameExternalAPI(GameType gameType, boolean isFirst) throws FunctionalException {
+        ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        String serverURL = externalAPI.getUrl();
+        switch (externalAPIProperties.getSelected()) {
+            case "group-e":
+                serverURL += "/morpion/initvsAI" + gameType.equals(GameType.PVE) + "&starter=" + isFirst;
+                PlayerE playerE = new PlayerE("Equipe popo", isFirst ? "x_value" : "o_value");
+                HttpEntity<PlayerE> requestEntityE = new HttpEntity<>(playerE);
+                ResponseEntity<GameE> responseE = http.exchange(serverURL, HttpMethod.POST, requestEntityE, GameE.class);
+                switch (responseE.getStatusCode().value()) {
+                    case 200 -> {
+                    }
+                    case 400 -> throw new FunctionalException(FunctionalRule.REQUEST_0001);
+                    case 500 -> throw new FunctionalException(FunctionalRule.SERVER_0001);
+                }
+                break;
+            case "group-a":
+                serverURL += "/init?starts=" + isFirst;
+                ResponseEntity<String> responseA = http.exchange(serverURL, HttpMethod.POST, HttpEntity.EMPTY, String.class);
+                switch (responseA.getStatusCode().value()) {
+                    case 200 -> {
+                    }
+                    case 400 -> throw new FunctionalException(FunctionalRule.REQUEST_0001);
+                }
+                break;
+            case "group-d":
+                serverURL += "/api/start?isFirst=" + isFirst + "&isVersusAI=" + gameType.equals(GameType.PVE);
+                ResponseEntity<StartResponse> responseD = http.exchange(serverURL, HttpMethod.POST, null, StartResponse.class);
+                if(responseD.getBody() == null || !responseD.getBody().isStart())
+                    throw new FunctionalException(FunctionalRule.REQUEST_0001);
+                break;
+            default:
+                break;
         }
+    }
 
     /**
      * Make a player join the specified room
      *
-     * @param roomCode game room code
+     * @param roomCode   game room code
      * @param playerUUID the player uuid to join (create if not exists)
      * @return the game of the roomCode
      * @throws FunctionalException if the game isn't found.
@@ -123,10 +187,36 @@ public class GameService {
     }
 
     public void deleteGame(String roomCode) throws FunctionalException {
+        deleteExternalApi();
         Game game = findByRoomCode(roomCode);
 
         games.remove(roomCode);
         logActionService.deleteAllByGameUUID(roomCode);
+    }
+
+    private void deleteExternalApi() throws FunctionalException {
+        ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        String serverURL = externalAPI.getUrl();
+        switch (externalAPIProperties.getSelected()) {
+            case "group-e":
+                serverURL += "/morpion/quit";
+                ResponseEntity<String> responseE = http.exchange(serverURL, HttpMethod.POST, HttpEntity.EMPTY, String.class);
+                switch (responseE.getStatusCode().value()) {
+                    case 200 -> {
+                    }
+                    case 400 -> throw new FunctionalException(FunctionalRule.REQUEST_0001);
+                    case 500 -> throw new FunctionalException(FunctionalRule.SERVER_0001);
+                }
+                break;
+            case "group-d":
+                serverURL += "/api/quit";
+                ResponseEntity<QuitResponse> responseD = http.exchange(serverURL, HttpMethod.POST, null, QuitResponse.class);
+                if(responseD.getBody() == null || !responseD.getBody().isQuit())
+                    throw new FunctionalException(FunctionalRule.GAME_0001);
+                break;
+            default:
+                break;
+        }
     }
 
     public Game findByRoomCode(String roomCode) throws FunctionalException {
@@ -141,7 +231,7 @@ public class GameService {
 
     private void addPlayer(Game game, Player p) throws FunctionalException {
         if (game.getPlayer1() == null) {
-            if(game.getCurrentPlayerId().isEmpty()){
+            if (game.getCurrentPlayerId().isEmpty()) {
                 game.setCurrentPlayerId(p.getUuid());
             }
             game.setPlayer1(p);
@@ -181,14 +271,15 @@ public class GameService {
 
     /**
      * Check if a move is possible in the grid of the game
+     *
      * @param roomCode current roomCode of the game
-     * @param posI position i of the move
-     * @param posJ position j of the move
+     * @param posI     position i of the move
+     * @param posJ     position j of the move
      * @return true if it's possible
      */
-    public boolean isAMovePossible(String roomCode, String playerUUID,  int posI, int posJ) throws FunctionalException{
+    public boolean isAMovePossible(String roomCode, String playerUUID, int posI, int posJ) throws FunctionalException {
         Game game = findByRoomCode(roomCode);
-        if(game.isFinished()) return false;
+        if (game.isFinished()) return false;
 
         positionIsCorrect(posI, posJ);
         if (!playerUUIDisCoherent(playerUUID, game)) return false;
@@ -206,7 +297,7 @@ public class GameService {
     }
 
     private void positionIsCorrect(int posI, int posJ) throws FunctionalException {
-        if (posI < 0 || posJ < 0 || posI >= GameConstants.GRID_SIZE*GameConstants.GRID_SIZE || posJ >= GameConstants.GRID_SIZE*GameConstants.GRID_SIZE) {
+        if (posI < 0 || posJ < 0 || posI >= GameConstants.GRID_SIZE * GameConstants.GRID_SIZE || posJ >= GameConstants.GRID_SIZE * GameConstants.GRID_SIZE) {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005
             );
@@ -221,16 +312,17 @@ public class GameService {
     }
 
     private String getTheSubGridUuid(int i, int j, Game game) {
-        int posI = i/ GameConstants.GRID_SIZE;
-        int posJ = j/GameConstants.GRID_SIZE;
+        int posI = i / GameConstants.GRID_SIZE;
+        int posJ = j / GameConstants.GRID_SIZE;
         return game.getGrid().getSubgrids()[posI][posJ].getUuid();
     }
 
     /**
      * Look if a cell is empty
-     * @param game current game
-     * @param i position i of the move
-     * @param j position j of the move
+     *
+     * @param game        current game
+     * @param i           position i of the move
+     * @param j           position j of the move
      * @param subGridUuid the subgrid's uuid of a move
      * @return true if the cell is empty
      */
@@ -242,7 +334,8 @@ public class GameService {
 
     /**
      * Look if a subGrid is playable
-     * @param game the current game
+     *
+     * @param game        the current game
      * @param subGridUuid the subgrid's uuid we want to check
      * @return true if the subGrid is playable
      */
@@ -254,14 +347,15 @@ public class GameService {
 
     /**
      * Check if a subGrid is full
+     *
      * @param subgrid subgrid to check
      * @return true if the subGrid is full
      */
     private boolean subGridIsFull(Subgrid subgrid) {
         CellStatus[][] cells = subgrid.getCells();
-        for(int i = 0; i < GameConstants.SUBGRID_SIZE; i++){
-            for(int j = 0; j < GameConstants.SUBGRID_SIZE; j++) {
-                if(cells[i][j] == CellStatus.EMPTY) return false;
+        for (int i = 0; i < GameConstants.SUBGRID_SIZE; i++) {
+            for (int j = 0; j < GameConstants.SUBGRID_SIZE; j++) {
+                if (cells[i][j] == CellStatus.EMPTY) return false;
             }
         }
         return true;
@@ -270,7 +364,8 @@ public class GameService {
     /**
      * Check if our subGrid is the actual subGrid we need to play in
      * (check si notre subgrid est celle où on doit jouer)
-     * @param game the current game
+     *
+     * @param game        the current game
      * @param subGridUuid the subgrid's uuid we want to make a move
      * @return true
      */
@@ -281,8 +376,8 @@ public class GameService {
 
     private Subgrid getSubGrid(Game game, String subGridUuid) {
         Subgrid[][] subGrids = game.getGrid().getSubgrids();
-        for(Subgrid[] subgrid: subGrids) {
-            for (Subgrid sub: subgrid) {
+        for (Subgrid[] subgrid : subGrids) {
+            for (Subgrid sub : subgrid) {
                 if (sub.getUuid().equals(subGridUuid)) {
                     return sub;
                 }
@@ -292,10 +387,9 @@ public class GameService {
     }
 
     /**
-     *
      * @param roomCode current roomCode of the game
-     * @param posI position i of the move
-     * @param posJ position j of the move
+     * @param posI     position i of the move
+     * @param posJ     position j of the move
      * @return si le jeu est fini ou non
      */
     public boolean playAMove(String roomCode, String playerUUID, int posI, int posJ) throws FunctionalException {
@@ -310,7 +404,7 @@ public class GameService {
 
         if (game.getCurrentSymbol().equals(CellStatus.X)) {
             game.setCurrentSymbol(CellStatus.O);
-        } else if (game.getCurrentSymbol().equals(CellStatus.O)){
+        } else if (game.getCurrentSymbol().equals(CellStatus.O)) {
             game.setCurrentSymbol(CellStatus.X);
         }
 
@@ -330,7 +424,7 @@ public class GameService {
         if (subGridIsFull(subgrid)) {
             subgrid.setPlayable(false);
         }
-        if (isSubgridFinished(subgrid))  {
+        if (isSubgridFinished(subgrid)) {
             calculateTheSubGridToPlay(game, i, j);
             return isGameFinished(game);
         } else {
@@ -350,7 +444,7 @@ public class GameService {
 
     private boolean isSubgridFinished(Subgrid subgrid) {
         CellStatus[][] cellStatus = subgrid.getCells();
-        for(int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++) {
             if (isTheSameCells(i, true, cellStatus)) {
                 subgrid.setWinner(subgrid.getCells()[0][i]);
                 subgrid.setPlayable(false);
@@ -361,7 +455,7 @@ public class GameService {
                 return true;
             }
         }
-        if (isTheSameCellsForDiagonale(cellStatus)){
+        if (isTheSameCellsForDiagonale(cellStatus)) {
             subgrid.setWinner(subgrid.getCells()[1][1]);
             subgrid.setPlayable(false);
             return true;
@@ -395,13 +489,13 @@ public class GameService {
         Subgrid[][] subgrids = game.getGrid().getSubgrids();
         CellStatus[][] gridToCells = new CellStatus[subgrids.length][subgrids[0].length];
 
-        for(int i = 0; i < subgrids.length; i++) {
-            for(int j = 0; j < subgrids[0].length; j++) {
+        for (int i = 0; i < subgrids.length; i++) {
+            for (int j = 0; j < subgrids[0].length; j++) {
                 gridToCells[i][j] = subgrids[i][j].getWinner();
             }
         }
 
-        for(int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++) {
             if (isTheSameCells(i, true, gridToCells)) {
                 game.setFinished(true);
                 setTheWinner(gridToCells[0][i], game);
@@ -412,7 +506,7 @@ public class GameService {
                 return true;
             }
         }
-        if (isTheSameCellsForDiagonale(gridToCells)){
+        if (isTheSameCellsForDiagonale(gridToCells)) {
             game.setFinished(true);
             setTheWinner(gridToCells[1][1], game);
             return true;
@@ -423,9 +517,9 @@ public class GameService {
 
     private boolean isWholeGridNotPlayable(Game game) {
         Subgrid[][] subgrids = game.getGrid().getSubgrids();
-        for(int i = 0; i < GameConstants.GRID_SIZE; i++) {
-            for(int j = 0; j < GameConstants.GRID_SIZE; j++) {
-                if(subgrids[i][j].isPlayable()) return false;
+        for (int i = 0; i < GameConstants.GRID_SIZE; i++) {
+            for (int j = 0; j < GameConstants.GRID_SIZE; j++) {
+                if (subgrids[i][j].isPlayable()) return false;
             }
         }
         game.setFinished(true);
@@ -435,7 +529,7 @@ public class GameService {
     private void setTheWinner(CellStatus cellStatus, Game game) {
         if (cellStatus == CellStatus.X) {
             game.setWinner(game.getPlayer1());
-        } else if(cellStatus == CellStatus.O) {
+        } else if (cellStatus == CellStatus.O) {
             game.setWinner(game.getPlayer2());
         }
     }

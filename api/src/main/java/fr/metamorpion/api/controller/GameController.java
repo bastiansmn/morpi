@@ -3,7 +3,12 @@ package fr.metamorpion.api.controller;
 import fr.metamorpion.api.exception.ApiError;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
-import fr.metamorpion.api.model.*;
+import fr.metamorpion.api.model.ActionDTO;
+import fr.metamorpion.api.model.AfterMoveState;
+import fr.metamorpion.api.model.Game;
+import fr.metamorpion.api.model.GameType;
+import fr.metamorpion.api.model.Player;
+import fr.metamorpion.api.model.Subgrid;
 import fr.metamorpion.api.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,7 +23,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
 import java.util.List;
@@ -80,7 +91,10 @@ public class GameController {
             @ApiResponse(responseCode = "200")
     })
     @PostMapping("create")
-    public ResponseEntity<Game> createGame(@RequestParam("gameType") GameType gameType, @RequestParam(value = "playerUUID", required = false) String playerUUID, @RequestParam("firstToPlay") boolean isFirstToPlay) {
+    public ResponseEntity<Game> createGame(
+            @RequestParam("gameType") GameType gameType,
+            @RequestParam(value = "playerUUID", required = false) String playerUUID,
+            @RequestParam("firstToPlay") boolean isFirstToPlay) throws FunctionalException {
         return ResponseEntity.ok(gameService.createGame(gameType, playerUUID, isFirstToPlay));
     }
 
@@ -234,7 +248,10 @@ public class GameController {
                     .map(Subgrid::getUuid)
                     .findFirst()
                     .orElse(null);
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid,  action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
+            if (game.getGameType().equals(GameType.PVE)) {
+                gameService.moveIA(game, roomCode);
+            }
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,

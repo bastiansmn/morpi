@@ -142,6 +142,10 @@ const handleMove = (opt: { i: number, j: number }) => {
       case GameType.PVP_ONLINE:
         stompClient.value.send(`/app/send-move/${roomCode.value}`, {}, JSON.stringify({i: opt.i, j: opt.j, playerUUID: sessionStorage.getItem('playerUUID')}));
         break;
+      case GameType.PVE:
+        stompClient.value.send(`/app/send-move/${roomCode.value}`, {}, JSON.stringify({i: opt.i, j: opt.j, playerUUID: sessionStorage.getItem('playerUUID')}));
+
+        break;
     }
   }
 }
