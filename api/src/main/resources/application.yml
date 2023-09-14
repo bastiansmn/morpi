@@ -21,3 +21,11 @@ springdoc:
 
 ws:
   allowed-origins: "*"
+
+# Change this via env: EXTERNAL_API_SELECTED=group-X
+external-api:
+  selected: ""
+  all-apis:
+    group-e:
+      name: GROUP-E
+      url: http://192.168.1.1:8080
