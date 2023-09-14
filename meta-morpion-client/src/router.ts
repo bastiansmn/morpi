@@ -12,13 +12,5 @@ export default createRouter({
          path: '/room/:roomCode',
          component: () => import('./components/Room.vue'),
       },
-      {
-         path: '/groupE',
-         component: () => import('./components/api_e/ListGames.vue'),
-      },
-      {
-         path: '/roomE',
-         component: () => import('./components/api_e/roomE.vue'),
-      }
    ]
 })

@@ -7,7 +7,7 @@ export interface Subgrid {
    uuid: string;
    cells: CellStatus[][];
    playable: boolean;
-   winner: CellStatus;
+   winner: CellStatus | null;
 }
 
 export enum CellStatus {
