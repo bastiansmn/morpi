@@ -15,6 +15,8 @@ import fr.metamorpion.api.model.GameType;
 import fr.metamorpion.api.model.Player;
 import fr.metamorpion.api.model.Subgrid;
 import fr.metamorpion.api.model.api_d.QuitResponse;
+import fr.metamorpion.api.model.api_d.ReceiveResponse;
+import fr.metamorpion.api.model.api_d.SendResponse;
 import fr.metamorpion.api.model.api_d.StartResponse;
 import fr.metamorpion.api.model.api_e.GameE;
 import fr.metamorpion.api.model.api_e.GridDTO;
@@ -102,6 +104,9 @@ public class GameService {
                 if (isFirstToPlay) {
                     game.setCurrentPlayerId(player.getUuid());
                 }
+                if (externalAPIProperties.getSelected() != null) {
+                    game.setPlayer2(registerPlayer("guest"));
+                }
                 games.put(game.getRoomCode(), game);
                 return game;
             }
@@ -122,7 +127,7 @@ public class GameService {
         String serverURL = externalAPI.getUrl();
         switch (externalAPIProperties.getSelected()) {
             case "group-e":
-                serverURL += "/morpion/initvsAI" + gameType.equals(GameType.PVE) + "&starter=" + isFirst;
+                serverURL += "/morpion/init?vsAI=" + gameType.equals(GameType.PVE) + "&starter=" + isFirst;
                 PlayerE playerE = new PlayerE("Equipe popo", isFirst ? "x_value" : "o_value");
                 HttpEntity<PlayerE> requestEntityE = new HttpEntity<>(playerE);
                 ResponseEntity<GameE> responseE = http.exchange(serverURL, HttpMethod.POST, requestEntityE, GameE.class);
@@ -594,7 +599,7 @@ public class GameService {
                 GridDTO gridDTOA = getGridDTO(game, action);
                 String player = game.getCurrentSymbol() == CellStatus.X ? "X" : "O";
                 serverURL += "/play?positionX=" + gridDTOA.getColumn() + "&positionY=" + gridDTOA.getRow() +
-                        "&positionx=" + gridDTOA.getChildcolumn() + "&positiony=" + gridDTOA.getRow() + "&player=" + player;
+                        "&positionx=" + gridDTOA.getChildColumn() + "&positiony=" + gridDTOA.getRow() + "&player=" + player;
                 ResponseEntity<String> responseA = http.exchange(serverURL, HttpMethod.POST, HttpEntity.EMPTY, String.class);
                 switch (responseA.getStatusCode().value()) {
                     case 200 -> {
@@ -606,12 +611,31 @@ public class GameService {
                 GridDTO gridDTOD = getGridDTO(game, action);
                 serverURL += "/api/send?bigX=" + gridDTOD.getColumn() +
                         "&bigY=" + gridDTOD.getRow() +
-                        "&littleX=" + gridDTOD.getChildcolumn() +
-                        "&littleY=" + gridDTOD.getChildrow();
+                        "&littleX=" + gridDTOD.getChildColumn() +
+                        "&littleY=" + gridDTOD.getChildRow();
+                ResponseEntity<SendResponse> responseD = http.exchange(serverURL, HttpMethod.POST, null, SendResponse.class);
+                if(responseD.getBody() == null || !responseD.getBody().isPosition())
+                    throw new FunctionalException(FunctionalRule.GAME_0005);
                 break;
             default:
                 break;
         }
     }
 
+    public void receiveToExternalAPI(Game game, ActionDTO action) throws FunctionalException {
+        if (!game.getGameType().equals(GameType.PVP_ONLINE))
+            return;
+        ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        String serverURL = externalAPI.getUrl();
+        switch (externalAPIProperties.getSelected()) {
+            case "group-d":
+                serverURL += "/api/receive";
+                ResponseEntity<ReceiveResponse> responseD = http.getForEntity(serverURL, ReceiveResponse.class);
+                if(responseD.getBody() == null || (responseD.getBody().getBigX().equals("-1")))
+                    throw new FunctionalException(FunctionalRule.GAME_0008);
+                break;
+            default:
+                break;
+        }
+    }
 }

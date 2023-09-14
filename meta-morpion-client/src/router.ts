@@ -11,7 +11,6 @@ export default createRouter({
       {
          path: '/room/:roomCode',
          component: () => import('./components/Room.vue'),
-      },
       }
    ]
 })

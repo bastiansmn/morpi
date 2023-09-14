@@ -12,6 +12,7 @@ public enum FunctionalRule {
     GAME_0004("NOT_IN_GAME", "Le joueur n'appartient pas à la partie"),
     GAME_0005("MOVE_UNAUTHORIZED", "Impossible de jouer ce coup"),
     GAME_0007("API_NOT_REACHABLE", "API non trouvée"),
+    GAME_0008("NOT_RECEIVE", "Coup pas encore reçu"),
     REQUEST_0001("BAD_REQUEST", "La requête est mauvaise"),
     SERVER_0001("INTERNAL_SERVER_ERROR", "Erreur interne du serveur")
     ;
