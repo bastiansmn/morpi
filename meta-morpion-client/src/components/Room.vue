@@ -169,20 +169,20 @@ const getPlayerTurn = computed(() => {
   </div>
 
   <div id="Jeu">
-    <div class="grid grid-rows-1 grid-cols-3">
-      <div v-for="(sgI, i) in game?.grid.subgrids">
-        <div v-for="(sgJ, j) in sgI">
-          <div
-              :id="sgJ.uuid"
-              class="subgrid grid grid-rows-1 grid-cols-3 m-2 rounded"
-              :class="{ 'outline': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'outline-2': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'completed': !sgJ.playable }"
-          >
+    <div class="grid">
+      <div v-for="(sgI, i) in game?.grid.subgrids" class="row-span-1 col-span-3 grid grid-cols-3 grid-rows-1">
+        <div
+           :id="sgJ.uuid"
+           v-for="(sgJ, j) in sgI"
+           class="subgrid m-2 rounded row-span-1 col-span-1 grid"
+           :class="{ 'outline': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'outline-2': game?.subgridToPlayId === sgJ.uuid && sgJ.playable, 'completed': !sgJ.playable }"
+       >
             <div class="subgrid-status">
               <div v-if="sgJ.playable" class="text-2xl font-bold text-white"></div>
               <div v-if="!sgJ.playable && sgJ.winner === CellStatus.X" class="text-2xl font-bold text-white">&#10005;</div>
               <div v-if="!sgJ.playable && sgJ.winner === CellStatus.O" class="text-2xl font-bold text-white">O</div>
             </div>
-            <div v-for="(cellI, ii) in sgJ.cells">
+            <div v-for="(cellI, ii) in sgJ.cells" class="row-span-1 col-span-3 grid grid-rows-1 grid-cols-3">
               <div
                   :id="`cell-${ii+i*3}-${jj+j*3}`"
                   class="cell p-5 bg-cyan-700 hover:bg-cyan-400 cursor-pointer rounded m-1 relative"
@@ -200,7 +200,6 @@ const getPlayerTurn = computed(() => {
                 </span>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
@@ -215,6 +214,11 @@ const getPlayerTurn = computed(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+#Jeu > .grid {
+   display: grid;
+   grid-template: repeat(3, 1fr) / repeat(3, 1fr);
 }
 
 .subgrid {

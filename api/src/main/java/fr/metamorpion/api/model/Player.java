@@ -1,12 +1,15 @@
 package fr.metamorpion.api.model;
 
 import fr.metamorpion.api.service.GameService;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Random;
 import java.util.UUID;
+
+import static fr.metamorpion.api.constants.GameConstants.GRID_SIZE;
 
 @Getter
 @Setter
@@ -44,31 +47,47 @@ public class Player {
 
     public int[] iaMakeAMove(Game game) {
         Random r = new Random();
-        int i = r.nextInt(3);
-        int j = r.nextInt(3);
-        int bigI = r.nextInt(3);
-        int bigJ = r.nextInt(3);
+        int i = r.nextInt(GRID_SIZE);
+        int j = r.nextInt(GRID_SIZE);
         String subgridToPlayId = game.getSubgridToPlayId();
+        Subgrid subgridToPlay;
+        Integer bigI = null;
+        Integer bigJ = null;
 
+        // If the subgrid to play is null, we choose a random subgrid
         if (subgridToPlayId == null) {
+            bigI = r.nextInt(GRID_SIZE);
+            bigJ = r.nextInt(GRID_SIZE);
             Subgrid[][] subgrids = game.getGrid().getSubgrids();
             while (!subgrids[bigI][bigJ].isPlayable()) {
-                bigI = r.nextInt(3);
-                bigJ = r.nextInt(3);
+                bigI = r.nextInt(GRID_SIZE);
+                bigJ = r.nextInt(GRID_SIZE);
             }
-            subgridToPlayId = subgrids[bigI][bigJ].getUuid();
+        } else {
+            // We get the coordinates of the subgrid to play
+            for (int k = 0; k < GRID_SIZE; k++) {
+                for (int l = 0; l < GRID_SIZE; l++) {
+                    if (game.getGrid().getSubgrids()[k][l].getUuid().equals(subgridToPlayId)) {
+                        bigI = k;
+                        bigJ = l;
+                        break;
+                    }
+                }
+            }
         }
 
-        Subgrid subgridToPlay = getSubGrid(game, subgridToPlayId);
+        assert bigI != null && bigJ != null;
+        subgridToPlay = game.getGrid().getSubgrids()[bigI][bigJ];
+
         assert subgridToPlay != null;
         while (subgridToPlay.getCells()[i][j] != CellStatus.EMPTY) {
-            i = r.nextInt(3);
-            j = r.nextInt(3);
+            i = r.nextInt(GRID_SIZE);
+            j = r.nextInt(GRID_SIZE);
         }
         return new int[]{bigI*3 + i, bigJ*3 + j};
     }
 
-    private Subgrid getSubGrid(Game game, String subGridUuid) {
+    private Subgrid getSubGrid(Game game, @Nullable String subGridUuid) {
         Subgrid[][] subGrids = game.getGrid().getSubgrids();
         for(Subgrid[] subgrid: subGrids) {
             for (Subgrid sub: subgrid) {

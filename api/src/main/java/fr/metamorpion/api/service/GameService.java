@@ -124,6 +124,7 @@ public class GameService {
 
     public void initGameExternalAPI(GameType gameType, boolean isFirst) throws FunctionalException {
         ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        if (externalAPI == null) return;
         String serverURL = externalAPI.getUrl();
         switch (externalAPIProperties.getSelected()) {
             case "group-e":
@@ -583,6 +584,7 @@ public class GameService {
         if (!game.getGameType().equals(GameType.PVP_ONLINE))
             return;
         ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        if (externalAPI == null) return;
         String serverURL = externalAPI.getUrl();
         switch (externalAPIProperties.getSelected()) {
             case "group-e":
