@@ -10,7 +10,19 @@ export default createRouter({
       },
       {
          path: '/room/:roomCode',
-         component: () => import('./components/Room.vue'),
+         component: () => import('./components/Room.vue')
+      },
+      {
+         path: '/room/:roomCode/win',
+         component: () => import('./components/Win.vue'),
+      },
+      {
+         path: '/room/:roomCode/draw',
+         component: () => import('./components/Draw.vue'),
+      },
+      {
+         path: '/room/:roomCode/lose',
+         component: () => import('./components/Lose.vue'),
       }
    ]
 })

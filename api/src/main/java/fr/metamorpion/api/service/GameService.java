@@ -33,6 +33,7 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -103,9 +104,6 @@ public class GameService {
                 game.setPlayer1(player);
                 if (isFirstToPlay) {
                     game.setCurrentPlayerId(player.getUuid());
-                }
-                if (externalAPIProperties.getSelected() != null) {
-                    game.setPlayer2(registerPlayer("guest"));
                 }
                 games.put(game.getRoomCode(), game);
                 return game;
@@ -195,6 +193,14 @@ public class GameService {
         } else {
             game.setPlayer2(null);
         }
+
+        if (game.getGameType().equals(GameType.PVP_LOCAL)) {
+            deleteGame(roomCode);
+        }
+
+        if (game.getPlayer1() == null && game.getPlayer2() == null) {
+            deleteGame(roomCode);
+        }
     }
 
     private Player getPlayerByPlayerUUID(String playerUUID) throws FunctionalException {
@@ -209,7 +215,7 @@ public class GameService {
 
     public void deleteGame(String roomCode) throws FunctionalException {
         deleteExternalApi();
-        Game game = findByRoomCode(roomCode);
+        findByRoomCode(roomCode);
 
         games.remove(roomCode);
         logActionService.deleteAllByGameUUID(roomCode);
@@ -217,6 +223,7 @@ public class GameService {
 
     private void deleteExternalApi() throws FunctionalException {
         ExternalAPI externalAPI = externalAPIProperties.getAllApis().get(externalAPIProperties.getSelected());
+        if (externalAPI == null) return;
         String serverURL = externalAPI.getUrl();
         switch (externalAPIProperties.getSelected()) {
             case "group-e":

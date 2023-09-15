@@ -229,7 +229,7 @@ public class GameController {
             if (game.getGameType().equals(GameType.PVE)) {
                 gameService.moveIA(game, roomCode);
             }
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner().getUuid());
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner());
         } else {
             throw new FunctionalException(
                     FunctionalRule.GAME_0005,

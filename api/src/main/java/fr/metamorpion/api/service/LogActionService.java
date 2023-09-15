@@ -4,12 +4,14 @@ import fr.metamorpion.api.model.LogAction;
 import fr.metamorpion.api.repository.LogActionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class LogActionService {
 
     private final LogActionRepository logActionRepository;

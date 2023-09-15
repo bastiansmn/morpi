@@ -18,5 +18,5 @@ public class AfterMoveState {
     private final int i;
     private final int j;
     private final boolean isGameFinished;
-    private final String winnerUUID;
+    private final Player winner;
 }
