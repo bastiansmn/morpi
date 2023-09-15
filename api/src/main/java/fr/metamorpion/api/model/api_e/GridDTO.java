@@ -2,13 +2,15 @@ package fr.metamorpion.api.model.api_e;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class GridDTO {
-    private final int row;
-    private final int column;
-    private final int childRow;
-    private final int childColumn;
-    private final String value;
+    private int row;
+    private int column;
+    private int childRow;
+    private int childColumn;
+    private String value;
 }

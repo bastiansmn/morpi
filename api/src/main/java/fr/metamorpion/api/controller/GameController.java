@@ -2,13 +2,11 @@ package fr.metamorpion.api.controller;
 
 import fr.metamorpion.api.exception.ApiError;
 import fr.metamorpion.api.exception.FunctionalException;
-import fr.metamorpion.api.exception.FunctionalRule;
 import fr.metamorpion.api.model.ActionDTO;
 import fr.metamorpion.api.model.AfterMoveState;
 import fr.metamorpion.api.model.Game;
 import fr.metamorpion.api.model.GameType;
 import fr.metamorpion.api.model.Player;
-import fr.metamorpion.api.model.Subgrid;
 import fr.metamorpion.api.service.GameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,8 +15,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -32,8 +31,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.stream.Stream;
 
 @Tag(name = "Game controller", description = "Game managing (create or join game, register player, ...")
 @RestController
@@ -42,6 +39,9 @@ import java.util.stream.Stream;
 public class GameController {
 
     private final GameService gameService;
+
+    @Value("${client-domain:}")
+    private String clientDomain;
 
     @Operation(
             summary = "Get the list of current rooms",
@@ -94,8 +94,12 @@ public class GameController {
     public ResponseEntity<Game> createGame(
             @RequestParam("gameType") GameType gameType,
             @RequestParam(value = "playerUUID", required = false) String playerUUID,
-            @RequestParam("firstToPlay") boolean isFirstToPlay) throws FunctionalException {
-        return ResponseEntity.ok(gameService.createGame(gameType, playerUUID, isFirstToPlay));
+            @RequestParam("firstToPlay") boolean isFirstToPlay,
+            HttpServletRequest req
+    ) throws FunctionalException {
+        return ResponseEntity.ok(
+                gameService.createGame(gameType, playerUUID, isFirstToPlay, req.getHeader("Host").startsWith(clientDomain))
+        );
     }
 
     @Operation(
@@ -184,13 +188,15 @@ public class GameController {
             )
     })
     @PostMapping("send-move")
-    public ResponseEntity<AfterMoveState> sendMove(
+    public ResponseEntity<Void> sendMove(
             @RequestParam("roomCode") String roomCode,
             @Parameter(description = "UUID of who is sending the move") @RequestParam("playerUUID") String playerUUID,
             @Parameter(description = "Absolute line number in the big grid") @RequestParam("i") int i,
-            @Parameter(description = "Absolute column number in the big grid")@RequestParam("j") int j
+            @Parameter(description = "Absolute column number in the big grid")@RequestParam("j") int j,
+            HttpServletRequest req
     ) throws FunctionalException {
-        return ResponseEntity.ok(this.sendMoveWS(roomCode, new ActionDTO(i, j, playerUUID)));
+        gameService.sendMoveWS(roomCode, new ActionDTO(i, j, playerUUID, req.getHeader("Host").startsWith(clientDomain)));
+        return ResponseEntity.noContent().build();
     }
 
 
@@ -208,34 +214,7 @@ public class GameController {
             @DestinationVariable("roomCode") String roomCode,
             @RequestBody ActionDTO action
     ) throws FunctionalException {
-        boolean movePossible = gameService.isAMovePossible(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
-        Game game = gameService.findByRoomCode(roomCode);
-        List<Subgrid> subGridsBeforeMove = Stream.of(game.getGrid().getSubgrids())
-                .flatMap(Stream::of)
-                .filter(Subgrid::isPlayable)
-                .toList();
-        if (movePossible) {
-            gameService.sendToExternalAPI(game, action);
-            boolean gameFinished = gameService.playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
-            List<Subgrid> subGridsAfterMove = Stream.of(game.getGrid().getSubgrids())
-                    .flatMap(Stream::of)
-                    .filter(Subgrid::isPlayable)
-                    .toList();
-            var completedSubGrid = subGridsBeforeMove.stream()
-                    .filter(subgrid -> !subGridsAfterMove.contains(subgrid))
-                    .map(Subgrid::getUuid)
-                    .findFirst()
-                    .orElse(null);
-            if (game.getGameType().equals(GameType.PVE)) {
-                gameService.moveIA(game, roomCode);
-            }
-            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner());
-        } else {
-            throw new FunctionalException(
-                    FunctionalRule.GAME_0005,
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+        return gameService.sendMove(roomCode, action, action.isLocal());
     }
 
     @Operation(

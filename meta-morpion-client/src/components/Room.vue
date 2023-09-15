@@ -7,6 +7,7 @@ import Game, {GameType} from "../model/game.model.ts";
 import axios from "axios";
 import {AfterMoveState} from "../model/action.model.ts";
 import {CellStatus} from "../model/grid.model.ts";
+import {log} from "util";
 
 const router = useRouter();
 const route = useRoute();
@@ -66,6 +67,51 @@ const fireConfetti = function fireConfetti() {
    animateConfetti();
 };
 
+const setWinnerOnCompletedSubgrid = (subgridUUID: string) => {
+   const isTheSameCells = (y: number, yIsJ: boolean, cells: CellStatus[][]) => {
+      if (yIsJ) {
+         if (cells[0][y] == CellStatus.EMPTY) return false;
+         return ((cells[0][y] == cells[1][y]) && (cells[1][y] == cells[2][y]));
+      } else {
+         if (cells[y][0] == CellStatus.EMPTY) return false;
+         return ((cells[y][0] == cells[y][1]) && (cells[y][1] == cells[y][2]));
+      }
+   }
+
+   const isTheSameCellsForDiagonale = (cells: CellStatus[][]) => {
+      const diag1 = (cells[0][0] == cells[1][1])
+            && (cells[1][1] == cells[2][2])
+            && cells[0][0] != CellStatus.EMPTY;
+      const diag2 = (cells[2][0] == cells[1][1])
+            && (cells[1][1] == cells[0][2])
+            && cells[2][0] != CellStatus.EMPTY;
+      return diag1 || diag2;
+   }
+
+   const subgrid = game.value?.grid.subgrids.flat()
+         .find(s => s.uuid === subgridUUID)
+         ?.cells;
+
+   if (!subgrid)
+      return CellStatus.EMPTY;
+
+   console.log(subgrid);
+
+   for (let i = 0; i < SUBGRID_SIZE.value; i++) {
+      if (isTheSameCells(i, true, subgrid)) {
+         return subgrid[0][i];
+      } else if (isTheSameCells(i, false, subgrid)) {
+         return subgrid[i][0];
+      }
+   }
+
+   if (isTheSameCellsForDiagonale(subgrid)) {
+      return subgrid[1][1];
+   }
+
+   return CellStatus.EMPTY;
+}
+
 onMounted(() => {
    roomCode.value = route.params.roomCode as string;
    axios.post(`/api/game/join-room?roomCode=${roomCode.value}&playerUUID=${sessionStorage.getItem('playerUUID')}`)
@@ -92,7 +138,7 @@ onMounted(() => {
                   game.value.winner = body.winner;
                   game.value.grid.subgrids[i][j].cells[ii][jj] = game.value.currentSymbol;
                   game.value.grid.subgrids[i][j].playable = (body.completedSubgridId !== game.value.grid.subgrids[i][j].uuid);
-                  game.value.grid.subgrids[i][j].winner = body.completedSubgridId === game.value.grid.subgrids[i][j].uuid ? game.value.currentSymbol : null;
+                  game.value.grid.subgrids[i][j].winner = setWinnerOnCompletedSubgrid(body.completedSubgridId, i, j);
                   game.value.currentSymbol = body.nextSymbol;
                   game.value.subgridToPlayId = body.subgridToPlayId;
 

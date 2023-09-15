@@ -17,24 +17,6 @@ onMounted(() => {
          })
 })
 
-function changeAPI() {
-  let api = (document.querySelector("input[type='radio'][name=api]:checked") as HTMLInputElement)?.value;
-  switch(api) {
-    case "A":
-      let pathA: string = `/groupA}`;
-      router.push(pathA)
-      break;
-    case "C":
-      let pathC: string = `/`;
-      router.push(pathC)
-      break;
-    case "E":
-      let pathE: string = `/groupE`;
-      router.push(pathE)
-      break;
-  }
-}
-
 function registerPlayer(){
   let pseudoInput = document.getElementById("pseudo") as HTMLInputElement | null;
 
@@ -107,19 +89,6 @@ function gameForm($event: any) {
       </li>
     </ul>
     <button type="submit" @click="gameForm($event)">Créer une partie</button>
-  </form>
-
-  <form id="apiGroup">
-    <ul>
-      <li>
-        <label for="API">APIs&nbsp;:&nbsp;</label>
-      </li>
-      <li>
-        <input type="radio" name="api" value="A" id="A" @click="changeAPI"> <label for="A">A</label> &nbsp;
-        <input type="radio" name="api" value="C" id="C" @click="changeAPI" checked> <label for="C">C</label> &nbsp;
-        <input type="radio" name="api" value="E" id="E" @click="changeAPI"> <label for="E">E</label><br>
-      </li>
-    </ul>
   </form>
 
    <h1 class="text-3xl mb-12">

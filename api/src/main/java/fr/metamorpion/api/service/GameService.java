@@ -1,19 +1,12 @@
 package fr.metamorpion.api.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
 import fr.metamorpion.api.configuration.StompSessionHandler;
 import fr.metamorpion.api.configuration.properties.ExternalAPI;
 import fr.metamorpion.api.configuration.properties.ExternalAPIProperties;
 import fr.metamorpion.api.constants.GameConstants;
 import fr.metamorpion.api.exception.FunctionalException;
 import fr.metamorpion.api.exception.FunctionalRule;
-import fr.metamorpion.api.model.ActionDTO;
-import fr.metamorpion.api.model.CellStatus;
-import fr.metamorpion.api.model.Game;
-import fr.metamorpion.api.model.GameType;
-import fr.metamorpion.api.model.Player;
-import fr.metamorpion.api.model.Subgrid;
+import fr.metamorpion.api.model.*;
 import fr.metamorpion.api.model.api_d.QuitResponse;
 import fr.metamorpion.api.model.api_d.ReceiveResponse;
 import fr.metamorpion.api.model.api_d.SendResponse;
@@ -23,28 +16,21 @@ import fr.metamorpion.api.model.api_e.GridDTO;
 import fr.metamorpion.api.model.api_e.PlayerE;
 import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.sql.ast.tree.expression.Star;
+import org.aspectj.lang.annotation.After;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
-import static org.springframework.util.MimeTypeUtils.APPLICATION_JSON;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -79,13 +65,13 @@ public class GameService {
      * @param gameType Choose the type of game you want to start
      * @return the game just created
      */
-    public Game createGame(GameType gameType, String playerUUID, boolean isFirstToPlay) throws FunctionalException {
-        if (gameType.equals(GameType.PVP_ONLINE))
+    public Game createGame(GameType gameType, String playerUUID, boolean isFirstToPlay, boolean local) throws FunctionalException {
+        if (gameType.equals(GameType.PVP_ONLINE) && local)
             initGameExternalAPI(gameType, isFirstToPlay);
 
         Player player = players.getOrDefault(playerUUID, null);
         if (player == null) {
-            player = registerPlayer("guest");
+            player = registerPlayer("guest", playerUUID);
         }
 
         switch (gameType) {
@@ -295,6 +281,50 @@ public class GameService {
         var player = new Player(playerUUID, username);
         players.put(player.getUuid(), player);
         return player;
+    }
+
+    public void sendMoveWS(String roomCode, ActionDTO actionDTO)
+            throws FunctionalException {
+        try {
+            StompSession stompSession = stompClient.connectAsync("http://localhost:8080/data-info", stompSessionHandler).get();
+            stompSession.send("/app/send-move/%s".formatted(roomCode), actionDTO);
+        } catch (Exception e) {
+            throw new FunctionalException(
+                    FunctionalRule.GAME_0005
+            );
+        }
+    }
+
+    public AfterMoveState sendMove(String roomCode, ActionDTO action, boolean local) throws FunctionalException {
+        boolean movePossible = isAMovePossible(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
+        Game game = findByRoomCode(roomCode);
+        List<Subgrid> subGridsBeforeMove = Stream.of(game.getGrid().getSubgrids())
+                .flatMap(Stream::of)
+                .filter(Subgrid::isPlayable)
+                .toList();
+        if (movePossible) {
+            if (local)
+                sendToExternalAPI(game, action);
+            boolean gameFinished = playAMove(roomCode, action.getPlayerUUID(), action.getI(), action.getJ());
+            List<Subgrid> subGridsAfterMove = Stream.of(game.getGrid().getSubgrids())
+                    .flatMap(Stream::of)
+                    .filter(Subgrid::isPlayable)
+                    .toList();
+            var completedSubGrid = subGridsBeforeMove.stream()
+                    .filter(subgrid -> !subGridsAfterMove.contains(subgrid))
+                    .map(Subgrid::getUuid)
+                    .findFirst()
+                    .orElse(null);
+            if (game.getGameType().equals(GameType.PVE)) {
+                moveIA(game, roomCode);
+            }
+            return new AfterMoveState(roomCode, action.getPlayerUUID(), game.getCurrentPlayerId(), game.getCurrentSymbol(), game.getSubgridToPlayId(), completedSubGrid, action.getI(), action.getJ(), gameFinished, game.getWinner() == null ? null : game.getWinner());
+        } else {
+            throw new FunctionalException(
+                    FunctionalRule.GAME_0005,
+                    HttpStatus.BAD_REQUEST
+            );
+        }
     }
 
     /**
@@ -579,7 +609,7 @@ public class GameService {
             int[] posMove = ia.iaMakeAMove(game);
             try {
                 StompSession stompSession = stompClient.connectAsync("http://localhost:8080/data-info", stompSessionHandler).get();
-                ActionDTO actionDTO = new ActionDTO(posMove[0], posMove[1], iaUUID);
+                ActionDTO actionDTO = new ActionDTO(posMove[0], posMove[1], iaUUID, true);
                 stompSession.send("/app/send-move/%s".formatted(roomCode), actionDTO);
             } catch (Exception e) {
                 e.printStackTrace();
