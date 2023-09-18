@@ -7,7 +7,6 @@ import Game, {GameType} from "../model/game.model.ts";
 import axios from "axios";
 import {AfterMoveState} from "../model/action.model.ts";
 import {CellStatus} from "../model/grid.model.ts";
-import {log} from "util";
 
 const router = useRouter();
 const route = useRoute();
@@ -138,7 +137,7 @@ onMounted(() => {
                   game.value.winner = body.winner;
                   game.value.grid.subgrids[i][j].cells[ii][jj] = game.value.currentSymbol;
                   game.value.grid.subgrids[i][j].playable = (body.completedSubgridId !== game.value.grid.subgrids[i][j].uuid);
-                  game.value.grid.subgrids[i][j].winner = setWinnerOnCompletedSubgrid(body.completedSubgridId, i, j);
+                  game.value.grid.subgrids[i][j].winner = setWinnerOnCompletedSubgrid(body.completedSubgridId);
                   game.value.currentSymbol = body.nextSymbol;
                   game.value.subgridToPlayId = body.subgridToPlayId;
 
