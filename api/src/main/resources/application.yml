@@ -27,7 +27,7 @@ client-domain:
 
 # Change this via env: EXTERNAL_API_SELECTED=group-X
 external-api:
-  selected: "group-e"
+  selected: ""
   all-apis:
     group-e:
       name: GROUP-E
