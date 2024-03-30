@@ -12,6 +12,15 @@ spec:
       labels:
         app: db
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - application
       containers:
         - name: db
           image: postgres:15.2

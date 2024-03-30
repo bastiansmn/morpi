@@ -12,6 +12,15 @@ spec:
       labels:
         app: backend
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - application
       containers:
         - name: backend
           image: bastiansmn/morpi:backend
